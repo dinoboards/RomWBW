@@ -499,6 +499,97 @@ The startup then proceeds very much like the Application Boot
 process described above.  HBIOS is installed in its operating bank
 and control is passed to the Boot Loader.
 
+## Boot Recovery
+
+To assist users when driver faults or misconfiguration causes a boot 
+failure, RomWBW supports a limited recovery capability.  This is 
+achieved by allowing the user to reboot their machine, loading
+a minimal driver set.  Implementation of this feature requires a
+hardware input "BOOT RECOVERY" button to be available and 
+appropriate software configuration to be completed in the HBIOS.
+
+When implemented, holding the "BOOT RECOVERY" button in after a 
+reset or power cycle will cause the normal driver load process to
+be skipped in preference to a minimal set of drivers being loaded.
+
+Typically this would be: Serial communication, RAM disk and parallel
+port IDE interface drivers.
+
+Platforms supporting this option currently are the MBC, Duodyne and
+latter version of the SBC.
+ 
+# Configuration
+
+## RomWBW NVRAM Configuration
+
+On systems with RTC devices (that have Non-Volatile RAM), RomWBW supports storing
+some limited configuration option options inside this RAM.
+
+Several configuration options are currently supported; these are known as Switches.
+The following switch ID's are defined, and described in sections below.
+
+| Switch Number | Name         | Description                                   |      
+|---------------|--------------|-----------------------------------------------|      
+| 0x00          | -reserved-   | Reserved                                      |      
+| 0x01          | Boot Options | ROM or Disk Boot Settings                     |      
+| 0x02          | -n/a-        | -n/a- high order byte of previous switch      |      
+| 0x03          | Auto Boot    | Automatically boot enabled without user input |
+| 0x04 - 0xFE   | -future-     | Future general usage                          |
+| 0xFF          | Status Reset | Get Status or Reset Switches to Default       |     
+
+RomWBW uses bytes located at the start of RTC NVRAM, and includes a Parity check of
+the bytes in NVRAM to check for authenticity before using the configuration.
+
+| NVRAM Byte  | Name         | Description                       |      
+|-------------|--------------|-----------------------------------|      
+| 0x00        | Header Byte  | Header Signature Byte 'W'         |      
+| 0x01 - 0x03 | Switch Data  | Actual Switch Data                |      
+| 0x04        | Parity Check | Checksum byte to check integrity  |    
+
+The above data is copied into the HBIOS Configuration Block (HCB) at startup at 
+the location starting at CB_SWITCHES.
+
+### Boot Options (NVSW_BOOTOPTS) 
+
+16 bit Switch defining the ROM application or Disk device to boot if
+automatic booting is enabled.
+
+| Bit 15      | Bits 14-8         | Bits 7-0           |      
+|-------------|-------------------|--------------------|      
+| 1 = ROM App | -undefined-       | App to Boot (Char) |      
+| 0 = Disk    | Disk Unit (0-127) | Disk Slice (0-255) |      
+
+### Auto Boot (NVSW_AUTOBOOT)
+
+8 bit Switch defining if the system should auto boot at startup.
+
+| Bits 7-6 | Bit 5                  | Bit 4    | Bits 3-0                             |     
+|----------|------------------------|----------|--------------------------------------|     
+| -unused- | 1 = Auto Boot Enabled  | -unused- | 0 = Immediate Boot with no delay     |     
+| -unused- | 1 = Auto Boot Enabled  | -unused- | (1-15) Timeout (seconds) before boot |     
+| -unused- | 0 = Auto Boot Disabled | -unused- | -undefined-                          |     
+
+### Status Reset (0xFF)
+
+The Status Reset switch is not a general purpose switch, it is a control mechanism
+to allow the global status of all switches to be determined. The meaning of the switch
+is different for Read (Get Status) and Write (Reset NVRAM)
+
+#### GET (Get Status)
+
+The read Get Status of switches. This returns very specific values from the function call.
+
+| Status                                       | A Register | Z / NZ Flag  |
+|----------------------------------------------|------------|--------------|
+| NVRAM does not exist                         | A=0        | NZ flag set  |
+| NVRAM exists, but has not been initialised   | A=1        | NZ flag set  |
+| NVRAM exists, and has been fully initialised | A='W'      | Z flag set   |
+
+#### SET (Reset NVRAM)
+
+Reset NVRAM to default values. This will wipe any existing data and set default
+values into NVRAM.
+
 # Driver Model
 
 The framework code for bank switching also allows hardware drivers to be
@@ -684,18 +775,18 @@ Character devices can usually be configured with line characteristics
 such as speed, framing, etc. A word value (16 bit) is used to describe
 the line characteristics as indicated below:
 
-| **Bits** | **Characteristic**                     |
-|---------:|----------------------------------------|
-| 15-14    | Reserved (set to 0)                    |
-| 13       | RTS                                    |
-| 12-8     | Baud Rate (see below)                  |
-| 7        | DTR                                    |
-| 6        | XON/XOFF Flow Control                  |
-| 5        | Stick Parity (set for true)            |
-| 4        | Even Parity (set for true)             |
-| 3        | Parity Enable (set for true)           |
-| 2        | Stop Bits (set for true)               |
-| 1-0      | Data Bits (5-8 encoded as 0-3)         |
+| **Bits** | **Characteristic**                                         |
+|---------:|------------------------------------------------------------|
+| 15-14    | Reserved (set to 0)                                        |
+| 13       | RTS                                                        |
+| 12-8     | Baud Rate (see below)                                      |
+| 7        | DTR                                                        |
+| 6        | XON/XOFF Flow Control                                      |
+| 5        | 1 = Stick Parity(Mark/Space), 0 = Normal Parity (odd/even) |
+| 4        | 1 = Even/Space, 0 = Odd/Mark                               |
+| 3        | Parity Enable (set for true)                               |
+| 2        | Stop Bits (set for true)                                   |
+| 1-0      | Data Bits (5-8 encoded as 0-3)                             |
 
 The 5-bit Baud Rate value (V) is encoded as V = 75 * 2^X * 3^Y. The
 bits are defined as YXXXX.
@@ -1072,7 +1163,7 @@ The non-Floppy specific bits are:
 |---------:|--------------------------------------------------|
 | 4        | LBA Capable                                      |
 | 3-0      | Media Type: 0=Hard Disk, 1=CF, 2=SD, 3=USB,      |
-|          |   4=ROM, 5=RAM, 6=RAMF, 7=FLASH, 8=CD-ROM,       |
+|          |   4=ROM, 5=RAM, 6=FLASH, 7=RAMF, 8=CD-ROM,       |
 |          |   9=Cartridge                                    |
 
 Device Type (D) indicates the specific hardware driver that handles the 
@@ -2293,6 +2384,11 @@ Cold Start (0x02):
   : Perform a system cold start (like a power on).  All devices are
     reinitialized.
 
+User Restart (0x03):
+
+  : Perform a video terminal reset.  Terminal emulation and visual display
+    systems are reset.
+
 The Status (A) is a standard HBIOS result code.
 
 ### Function 0xF1 -- System Version (SYSVER)
@@ -2612,6 +2708,27 @@ the caller can use interbank calls directly to the function in the
 driver which bypasses the overhead of the normal function invocation
 lookup.
 
+#### SYSGET Subfunction 0xC0 -- Get Switches (SWITCH)
+
+| **Entry Parameters** | **Returned Values** |
+|----------------------|---------------------|
+| B: 0xF8              | A: Status           |
+| C: 0xC0              | HL: Switch Value    |
+| D: Switch Key        |                     |
+
+This function will return the current value (HL) of the switch (D) from NVRAM. 
+
+Switches may be returned as a 16 bit (HL) or 8 bit (L) value. It is up to the caller 
+to process the returned value correctly. Note for Switch 0xFF (status) the returned value
+is primarily in the Status (A) register.
+
+Errors are signalled in the return by setting the NZ flag. When set the
+(A) register may contain an error code, but this code does not conform to RomWBW standard
+
+Success is indicated by setting the Z flag
+
+For a description of switches please see [RomWBW NVRAM Configuration]
+
 #### SYSGET Subfunction 0xD0 -- Get Timer Tick Count (TIMER)
 
 | **Entry Parameters**                   | **Returned Values**                    |
@@ -2783,6 +2900,27 @@ This function will set various system parameters based on the
 sub-function value. The following lists the subfunctions available along
 with the registers/information utilized.  The Status (A) is a standard 
 HBIOS result code.
+
+#### SYSSET Subfunction 0xC0 -- Set Switches (SWITCH)
+
+| **Entry Parameters** | **Returned Values** |
+|----------------------|---------------------|
+| B: 0xF9              | A: Status           |
+| C: 0xC0              |                     |
+| D: Switch Key        |                     |
+| HL: Switch Value     |                     |
+
+This function will set the value (HL) into the switch (D) and store it into NVRAM.
+
+Switches may be passed as a 16 bit (HL) or 8 bit (L) value. It is up to the caller
+to send the value correctly. Note for Switch 0xFF (reset) the value (HL) is ignored
+
+Errors are signalled in the return by setting the NZ flag. When set the
+(A) register may contain an error code, but this code does not conform to RomWBW standard
+
+Success is indicated by setting the Z flag
+
+For a description of switches please see [RomWBW NVRAM Configuration]
 
 #### SYSSET Subfunction 0xD0 -- Set Timer Tick Count (TIMER)
 
@@ -3203,28 +3341,62 @@ placeholder
 
 ### Diagnostic LEDs
 
-Progress through the boot and initialization process can be difficult to monitor 
-due to the lack of console or video output. Access to these output devices does
-not become available until late the in the boot process. If these output devices 
-are also involved with the issue trying to be resolved then trouble shooting is 
-even more difficult.
+Progress through the boot and initialization process can be difficult to 
+monitor due to the lack of console or video output.  Access to these output 
+devices does not become available until late the in the boot process.  If 
+these output devices are also involved with the issue trying to be resolved 
+then trouble shooting is even more difficult.
 
-ROMWBW can be configured to display boot progress with the assistance of additional 
-hardware. This take the form of an LED breakout debugging board connected to an
-8-bit output port. As the boot code executes, the LED output display is updated.
+ROMWBW can be configured to display boot progress with the assistance of 
+additional hardware.  This can take the form of a front panel LED display or 
+LED breakout debugging board connected to an 8-bit output port.  Or it can 
+utilize existing platform status LEDS. 
 
-To use a LED breakout board, it must be connected the computers data, reset and port
-select lines.
+As the boot code executes, the LED output display is updated to indicate the execution progress.
 
-To enable the DIAG option the following settings must be made in the systems .ini
-configuration file, where 0xnn is the port address.
+Platforms that have these capabilities built in have them enabled by default.
 
-DIAGENABLE .SET TRUE
-DIAGPORT   .SET 0xnn
+#### Front Panel display
 
-The following table shows the ROMWBW process steps in relation to the LED display.
+A LED front panel or breakout board needs to be connected the computers data, 
+reset and port select lines.
 
-| **LED**    | **RomWBW Processes**                           |
+To enable this option the following settings can be made in the platforms custom
+configuration file.
+
+```
+FPLED_ENABLE	.SET	TRUE           ; ENABLE FRONT PANEL
+```
+
+Custom hardware can be configured with :
+
+```
+FPLED_IO	.SET	$nn	    	; USE PORT ADDRESS nn
+FPLED_INV	.SET	FALSE		; INVERTED LED BITS
+```
+
+#### Platform Status LEDS
+
+These status LEDs use preexisting status LEDs on each platform.
+
+Enable using:
+
+```
+LEDENABLE	.SET	TRUE            ; ENABLES STATUS LED
+```
+
+Customize using:
+
+```
+LEDMODE		.SET	LEDMODE_STD     ; LEDMODE_[STD|SC|RTC|NABU]
+LEDPORT		.SET	$nn             ; STATUS LED PORT ADDRESS
+```
+
+The following table shows the ROMWBW process steps in relation to the panel
+display.
+
+
+| **PANEL**  | **RomWBW Processes**                           |
 |------------|------------------------------------------------|
 | `........` | Initial boot                                   |
 |            | Jump to start address                          |

@@ -252,6 +252,8 @@ is discussed in [Customizing RomWBW].
 | [Z80 ZRC CPU Module]^7^                                     | RCBus   | RCZ80_zrc_std.rom            | 115200        |
 | [Z80 ZRC CPU Module]^7^ ROMless                             | RCBus   | RCZ80_zrc_ram_std.rom        | 115200        |
 | [Z80 ZRC512 CPU Module]^7^                                  | RCBus   | RCZ80_zrc512_std.rom         | 115200        |
+| [Z80 EaZy80-512 CPU Module]^7^                              | RCBus   | RCZ80_ez512_std.rom          | 115200        |
+| [Z80 K80W CPU Module]^7^                                    | RCBus   | RCZ80_k8w_std.rom            | 115200        |
 | [Z180 Z1RCC CPU Module]^7^                                  | RCBus   | RCZ180_z1rcc_std.rom         | 115200        |
 | [Z280 ZZRCC CPU Module]^7^                                  | RCBus   | RCZ280_zzrcc_std.rom         | 115200        |
 | [Z280 ZZRCC CPU Module]^7^ ROMless                          | RCBus   | RCZ280_zzrcc_ram_std.rom     | 115200        |
@@ -573,14 +575,15 @@ For example, typing `H<enter>` will display a short command summary:
 Boot [H=Help]: h
 
   L           - List ROM Applications
-  D           - Disk Device Inventory
+  D           - Device Inventory
   R           - Reboot System
-  I <u> [<c>] - Set Console Interface/Baud code
+  W           - RomWBW Configure
+  I <u> [<c>] - Set Console Interface/Baud Rate
   V [<n>]     - View/Set HBIOS Diagnostic Verbosity
   <u>[.<s>]   - Boot Disk Unit/Slice
 ```
 
-Likewise the `L` command will display the list of ROM Applications that
+Likewise the `L` command (List ROM Applications) will display the list of ROM Applications that
 you can launch right from the Boot Loader:
 
 ```
@@ -599,6 +602,9 @@ ROM Applications:
   X: XModem Flash Updater
   U: User App
 ```
+
+A more complete description of these options is found below in
+[System Management].
 
 ## Starting Applications from ROM
 
@@ -818,19 +824,25 @@ Here is an overview for each operating system:
   not cover the use of SUBMIT files -- please refer to the CP/M 2.2
   documentation.
 
-- **NZCOM** - Will run the command STARTZCM at startup.  This is 
-  normally an alias file.  You use SALIAS to edit such files.  Please see 
+- **NZCOM** - Will run the command STARTZCM at startup.  This is
+  normally an alias file, which you can edit using SALIAS.  Please see 
   Section 3.1 Creating an Alias of the NZCOM Users Manual included in the 
-  Doc/CPM folder of the RomWBW distribution.  Note that the NZCOM 
-  distribution includes a PROFILE.SUB file.  NZCOM itself is launched from 
-  ZSDOS.  The included PROFILE.SUB accomplishes this.  Do not modify this 
-  file unless you fully understand the NZCOM boot process.
+  Doc/CPM folder of the RomWBW distribution.  Do not modify this 
+  file unless you fully understand the NZCOM boot process. Note that 
+  NZCOM itself is launched from ZSDOS via the included PROFILE.SUB file.
 
 - **CP/M 3** - Will run PROFILE.SUB as a SUBMIT file if it exists in A: 
   at startup.  This mechanism is built into the CP/M 3 operating system.  
   Please see Section 4.5 Executing Multiple Commands and Section 5.2.74 
   Executing the SUBMIT Command of the CPM3 Users Guide included in the 
   Doc/CPM folder of the RomWBW distribution.
+
+- **Z3PLUS** - Will run the command STARTZ3P at startup.  This is
+  normally an alias file, which you can edit using SALIAS.  Please see
+  Section 3.1 Creating an Alias of the Z3PLUS Users Manual included in the
+  Doc/CPM folder of the RomWBW distribution.  Do not modify this
+  file unless you fully understand the Z3PLUS boot process. Note that 
+  Z3PLUS itself is launched from CP/M 3 via the included PROFILE.SUB file.
 
 - **ZPM3** - Will run the command STARTZPM at startup.  This is normally
   an alias file.  You use SALIAS to edit such files.  ZPM3 has no real 
@@ -897,7 +909,56 @@ Boot [H=Help]: r
 Restarting System...
 ```
 
-### Changing Console and Console speed
+### Setting NVRAM Options
+
+On systems with RTC devices (that have Non-Volatile RAM), RomWBW supports storing
+some limited configuration option options inside this NVRAM.
+
+Several configuration options are currently supported, these are known as Switches
+
+* Specify Automatic boot at startup, after an optional delay (AB)
+* Define the Disk or ROM App to be booted at for automatic boot (BO)
+
+RomWBW uses bytes located at the start of RTC NVRAM, and includes a checksum of 
+the bytes in NVRAM to check for integrity before using the configuration.
+
+Initially NVRAM has to be reset (with default values), before it can be used.
+As well as setting defaults, it also writes the correct checksum, and allows the
+NVRAM to be accessed and to store the RomWBW config.
+
+This is an explicit step that must be done, as any existing data stored is overwritten.
+If you are using NVRAM for other purposes, then you can continue to do so
+so long as you do NOT perform this Reset step.
+
+NVRAM may also need to be reset in these circumstances:
+
+* When there has been a loss of power to the NVRAM.
+* When upgrading to a new RomWBW version, or a RomWBW version that has new switches.
+* If the NVRAM has been overwritten by another application.
+
+If you want to continue to use NVRAM in your applications you may want to consider storing
+your data above the RomWBW Switch data.
+
+To configure these options an inbuilt ROM application is provided which can be accessed
+by the command "`W`" from the RomWBW boot menu.
+
+This application is also built as a CP/M utility, but is not included on an disk image, 
+it is found in the `Binary/Applications` folder of the RomWBW distribution.
+
+For further guidance on using this application please see the section 
+"RomWBW System Configuration" in the $doc_apps$ document.
+
+If your system has both a [Front Panel] as well as NVRAM, be aware that
+the Front Panel switches take precedence over the NVRAM configuration
+settings.
+
+Note that the WizNet class of Network devices also contain NVRAM which is
+entirely separate from the RomWBW configuration NVRAM described here.  A
+separate utility is used to set the WizNet NVRAM (see [CP/NET Client Setup]).
+
+[RomWBW Applications]($doc_root$/RomWBW Applications.pdf)
+
+### Changing Console and Console Speed
 
 Your system can support a number of devices for the console. They may
 be VDU type devices or serial devices. If you want to change which
@@ -2288,12 +2349,21 @@ survive re-imaging, you **must** follow these rules:
 
 This section covers techniques to copy partial images onto pre-existing media,
 in effect performing a selective slice copy. These techniques currently **only** apply to 
-hd1k formatted media, which has a convienient 1MB size metric. 
-However adapting to hd512 is possible.
+hd1k formatted media, which has a convenient 1MB size metric. 
+However adapting to hd512 is possible, but left to the user.
 
 On Linux/MacOS the `dd` command can be used to write data in a controlled manner.
-The `dd` command supports options to define precisly souce 
-and destination offsets and sizes to copy. 
+Although Windows does not have a native `dd` command, there are multiple
+options for installing it including [MSYS2](https://www.msys2.org/),
+[CygWin](https://www.cygwin.com/),
+and [dd for Windows](http://www.chrysocome.net/dd).
+
+**WARNING**: The `dd` command is a low-level utility that writes
+directly to raw disk sectors with almost no safety checks.  It is very
+easy to corrupt a disk if this tool is used incorrectly.
+
+The `dd` command supports options to define precisely source 
+and destination offsets and sizes to copy.
 From the documentation of `dd` the following options are important.
 
 ```
@@ -2364,6 +2434,27 @@ where 8 is the size of a slice
 and 1 is the size of the partition table im megabytes.
 Thus we are skipping 6 slices (in the combo image) 
 and writing to the 7th slice.
+
+#### Example 3 : Copy image using partition
+
+In the previous examples, the hard disk is addressed as a raw disk
+device and we took steps to calculate the assumed start of the RomWBW
+partition.  However, as long as the hd1k format is in use, it is
+also possible to just point `dd` directly to the partition itself.
+
+To do this, you must first determine the name that your operating
+system is using for the desired partition.  Frequently, partitions
+are named by simply adding a number after the name of the hard disk
+device.  For example, if the hard disk is /dev/sdg, the first
+partition is frequently /dev/sdg1 or /dev/sdgp1.
+
+Taking advantage of this, it is safer and easier to calculate the
+offset of a slice within the partition.  It is simply the slice
+number \* 8MB.  Example 2 above, could now be performed as:
+
+```
+Binary % sudo dd if=hd1k_games.img of=/dev/sdg1 seek=48 bs=1M
+```
 
 # Operating Systems
 
@@ -3798,22 +3889,29 @@ local drives.
 
 ## Network Boot
 
-It is possible to boot your MT011 equipped RomWBW system directly from a
-network server.  This means that the operating system will be loaded 
+It is possible to boot your RomWBW system directly from a
+network server if it has the required hardware.  This means that the operating system will be loaded 
 directly from the network server and all of your drive letters will be 
-provided by the network server.  Duodyne is not yet supported in this 
-mode of operation.
+provided by the network server.  The supported hardware is:
+
+- RCBus System w/ MT011 including:
+  - Featherwing WizNet W5500
+  - SPI FRAM on secondary SPI interface (CS2)
+- Doudyne Disk I/O Board including:
+  - WIZ850io Module
+  - 25LCxxx Serial SPI EEPROM
+  
+Unlike the CP/NET Client, the presence of dedicated non-volatile
+storage is required to hold the network configuration.  This will be
+FRAM (for MT011) or Serial SPI EEPROM (Duodyne).    The NVRAM is used to store your WizNet 
+configuration values so they do not need to be re-entered every time you
+power-cycle your system.
 
 It is important to understand that the operating system that is loaded
 in this case is **not** a RomWBW enhanced operating system.  Some
 commands (such as the `ASSIGN` command) will not be possible.  Also,
 you will only have access to drives provided by the network server --
 no local disk drives will be available.
-
-In order to do this, your MT011 Module **must** be enhanced with an 
-NVRAM SPI FRAM mini-board.  The NVRAM is used to store your WizNet 
-configuration values so they do not need to be re-entered every time you
-power-cycle your system.
 
 Using the same values from the previous example, you would
 issue the `WIZCFG` commands:
@@ -3835,12 +3933,9 @@ contains some files that will be sent to your RomWBW system when the
 Network boot is performed.  By default the directory will be
 `~/NetBoot`.  In this directory you need to place the following files:
 
-* `cpnos-wbw.sys`
+* `cpnos.sys`
 * `ndos.spr`
 * `snios.spr`
-
-All of these files are found in the Binary/CPNET/NetBoot directory of 
-the RomWBW distribution.
 
 You also need to make sure CpnetSocketServer is configured with an 'A' 
 drive and that drive must contain (at an absolute minimum) the following
@@ -3848,12 +3943,15 @@ file:
 
 * `ccp.spr`
 
-which is also found in the Binary/CPNET/NetBoot directory of RomWBW
+All of these files are found in the Binary/CPNET/NetBoot directory of 
+the RomWBW distribution.  You will find 2 sub-directories named MT and
+DUO.  Get the files from the sub-directory corresponding to your
+specific hardware.
 
 Finally, you need to add the following line to your CpnetSocketServer 
 configuration file:
 
-`netboot_default = cpnos-wbw.sys`
+`netboot_default = cpnos.sys`
 
 To perform the network boot, you start your RomWBW system normally which
 should leave you at the Boot Loader prompt.  The 'N' command will
@@ -4237,6 +4335,11 @@ ALIAS facility.
 p-System has its own startup command processing mechanism that is
 covered in the p-System documentation.
 
+## NVRAM Configuration
+
+See section [Setting NVRAM Options] for information about how to
+apply NVRAM configuration.
+
 ## ROM Customization
 
 The pre-built ROM images are configured for the basic capabilities of
@@ -4268,6 +4371,14 @@ level task and is left to the reader to pursue.
 Note that the ROM customization process does not apply to UNA. All
 UNA customization is performed within the ROM setup script that is
 built into the ROM.
+
+## ROM User Application
+
+The User App is provided as a way to access a custom written
+ROM application.  In the pre-built ROMs, selecting User App will just
+return to the Boot Loader menu.  If you are interested in creating a
+custom application to run instead, review the "usrrom.asm" file in the
+Source/HBIOS folder of the distribution.
 
 # UNA Hardware BIOS
 
@@ -4678,7 +4789,9 @@ please let me know if I missed you!
   
 * Mark Pruden has also contributed a great deal of content to the
   Disk Catalog, User Guide as well as contributing the disk image
-  for the Z3PLUS operating system, and the COPYSL utility.
+  for the Z3PLUS operating system, the COPYSL utility, and also
+  implemented a feature for RomWBW configuration by NVRAM,
+  and added the /B bulk mode of disk assignment to the ASSIGN utility.
 
 * Jacques Pelletier has contributed the DS1501 RTC driver code.
 
@@ -6004,6 +6117,99 @@ the RomWBW HBIOS configuration.
 ##### Notes:
 
 - ROMless boot -- HBIOS is loaded from disk at boot
+- CPU speed will be dynamically measured at startup if DSRTC is present
+
+`\clearpage`{=latex}
+
+### Z80 EaZy80-512 CPU Module
+
+#### ROM Image File:  RCZ80_ez512_std.rom
+
+|                   |               |
+|-------------------|---------------|
+| Default CPU Speed | 22.000 MHz    |
+| Interrupts        | Mode 2        |
+| System Timer      | CTC           |
+| Serial Default    | 115200 Baud   |
+| Memory Manager    | EZ512         |
+| ROM Size          | 0 KB          |
+| RAM Size          | 512 KB        |
+
+##### Supported Hardware (see [Appendix B - Device Summary]):
+
+- FP: LEDIO=0, SWIO=0
+- LCD: IO=218, SIZE=20X4
+- DSRTC: MODE=STD, IO=192
+- UART: MODE=RC, IO=160
+- UART: MODE=RC, IO=168
+- SIO MODE=STD, IO=8, CHANNEL A, INTERRUPTS ENABLED
+- SIO MODE=STD, IO=8, CHANNEL B, INTERRUPTS ENABLED
+- ACIA: IO=128
+- VRC: IO=0, KBD MODE=VRC, KBD IO=244
+- KBD: ENABLED
+- CH: IO=62
+- CH: IO=60
+- CHUSB: IO=62
+- CHUSB: IO=60
+- MD: TYPE=RAM
+- FD: MODE=RCWDC, IO=80, DRIVE 0, TYPE=3.5" HD
+- FD: MODE=RCWDC, IO=80, DRIVE 1, TYPE=3.5" HD
+- IDE: MODE=RC, IO=16, MASTER
+- IDE: MODE=RC, IO=16, SLAVE
+- PPIDE: IO=32, MASTER
+- PPIDE: IO=32, SLAVE
+- SD: MODE=EZ512, IO=2, UNITS=1
+- KIO: IO=0
+- CTC: IO=4, TIMER MODE=TIMER/16, DIVISOR=4608, HI=256, LO=18, INTERRUPTS ENABLED
+
+##### Notes:
+
+- HBIOS is loaded from disk at boot by ROM monitor
+- CPU speed will be dynamically measured at startup if DSRTC is present
+
+`\clearpage`{=latex}
+
+#### ROM Image File:  RCZ80_k8w_std.rom
+
+|                   |               |
+|-------------------|---------------|
+| Default CPU Speed | 22.000 MHz    |
+| Interrupts        | Mode 2        |
+| System Timer      | CTC           |
+| Serial Default    | 115200 Baud   |
+| Memory Manager    | Z2            |
+| ROM Size          | 512 KB        |
+| RAM Size          | 512 KB        |
+
+##### Supported Hardware (see [Appendix B - Device Summary]):
+
+FP: LEDIO=0, SWIO=0
+LCD: IO=218, SIZE=20X4
+DSRTC: MODE=K80W, IO=192
+UART: IO=128
+UART: IO=136
+UART: IO=160
+UART: IO=168
+SIO MODE=STD, IO=136, CHANNEL A, INTERRUPTS ENABLED
+SIO MODE=STD, IO=136, CHANNEL B, INTERRUPTS ENABLED
+CH: IO=62
+CH: IO=60
+CHUSB: IO=62
+CHUSB: IO=60
+MD: TYPE=RAM
+MD: TYPE=ROM
+FD: MODE=RCWDC, IO=80, DRIVE 0, TYPE=3.5" HD
+FD: MODE=RCWDC, IO=80, DRIVE 1, TYPE=3.5" HD
+IDE: MODE=RC, IO=16, MASTER
+IDE: MODE=RC, IO=16, SLAVE
+PPIDE: IO=32, MASTER
+PPIDE: IO=32, SLAVE
+SD: MODE=EZ512, IO=130, UNITS=1
+KIO: IO=128
+CTC: IO=132, TIMER MODE=TIMER/16, DIVISOR=9216, HI=256, LO=36, INTERRUPTS ENABLED
+
+##### Notes:
+
 - CPU speed will be dynamically measured at startup if DSRTC is present
 
 `\clearpage`{=latex}

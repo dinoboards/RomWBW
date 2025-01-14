@@ -11,6 +11,8 @@
 ;     ex: ASSIGN		(display all active drive assignments)
 ;         ASSIGN /?		(display version and usage)
 ;         ASSIGN /L		(display all possible devices)
+;         ASSIGN /B=OPTS	(perform assignment based on options)
+;         ASSIGN C:		(display assignment for C:)
 ;         ASSIGN C:=D:		(swaps C: and D:)
 ;         ASSIGN C:=FD0:	(assign C: to floppy unit 0)
 ;         ASSIGN C:=IDE0:1	(assign C: to IDE unit0, slice 1)
@@ -33,6 +35,9 @@
 ;   2023-06-19 [WBW] Update for revised DIODEVICE API
 ;   2023-09-19 [WBW] Added CHUSB & CHSD device support
 ;   2023-10-13 [WBW] Fixed DPH creation to select correct DPB
+;   2024-12-17 [MAP] Added new /B=opt feaure to assign drives
+;   2024-12-21 [MAP] Added CBIOS heap estimation to /B to prevent
+;                    overflow when the drives are finally added
 ;_______________________________________________________________________________
 ;
 ; ToDo:
@@ -52,6 +57,7 @@ bnksel	.equ	$FFF3		; HBIOS bank select vector
 stamp	.equ	$40		; loc of RomWBW CBIOS zero page stamp
 ;
 #include "../../ver.inc"
+#include "../../HBIOS/hbios.inc"
 ;
 ;===============================================================================
 ; Code Section
@@ -80,7 +86,7 @@ start:
 	call	init		; initialize
 	jr	nz,exit		; abort if init fails
 ;
-	; do the real work 
+	; do the real work
 	call	process		; parse and process command line
 	jr	nz,exit		; done if error or no action
 ;
@@ -160,12 +166,14 @@ init:
 	ld	e,(hl)		; dereference HL
 	inc	hl		; ... into DE to get
 	ld	d,(hl)		; ... DPB map pointer
-	ld	(dpbloc),de	; and save it	
+	ld	(dpbloc),de	; and save it
 ;
 	; test for CP/M 3 and branch if so
 	ld	a,(cpmver)	; low byte of cpm version
 	cp	$30		; CP/M 3.0?
 	jp	nc,initcpm3	; handle CP/M 3.0 or greater
+;
+; CP/M 2.2 (CBIOS) initialization
 ;
 	; make a local working copy of the drive map
 	ld	hl,(maploc)	; copy from CBIOS drive map
@@ -215,6 +223,13 @@ initx:
 	add	hl,de		; adjust
 	ld	(heaplim),hl	; save it
 ;
+	; establish remaining heap, used for estimation during /b
+	ld	de,(maploc)	; start of free heap space
+	or	a		; clear carry
+	sbc	hl,de		; upper heap - start of heap = size
+	ld	de,SIZ_DBUF	; 128 bytes for directory buffer
+	sbc	hl,de		; less directory buffer overhead
+	ld	(heaprem),hl	; save heap size that can be allocated
 #if 0
 	ld	a,' '
 	call	crlf
@@ -229,7 +244,9 @@ initx:
 	call	prtchr
 	ld	bc,(heaplim)
 	call	prthexword
-	
+	call	prtchr
+	ld	bc,(heaprem)
+	call	prthexword
 #endif
 ;
  	; return success
@@ -253,7 +270,7 @@ initcpm3:
 	; switch to sysbnk
 	ld	a,($FFE0)	; get current bank
 	push	af		; save it
-	ld	bc,$F8F2	; HBIOS Get Bank Info
+	ld	bc,BC_SYSGET_BNKINFO ; HBIOS Get Bank Info
 	rst	08		; call HBIOS, E=User Bank
 	ld	a,e		; HBIOS User Bank
 	call	bnksel		; HBIOS BNKSEL
@@ -282,7 +299,7 @@ initc3:
 	inc	de		; bump to slice
 	ld	a,(hl)		; get slice from drvtbl
 	ld	(de),a		; save slice to drvmap
-initc4:	
+initc4:
 	inc	de		; bump past slice
 	inc	de		; skip
 	inc	de		; ... dph
@@ -399,6 +416,8 @@ option:
 	ld	a,(hl)		; get it
 	cp	'?'		; is it a '?' as expected?
 	jp	z,usage		; yes, display usage
+	cp	'B'		; assign Boot Hard Drive Slices
+	jp	z,bootdr	; yes, assign boot drive slices
 	cp	'L'		; is it a 'L', display device list?
 	jp	z,devlist	; yes, display device list
 	jp	errprm		; anything else is an error
@@ -438,9 +457,8 @@ devlist:
 	or	a		; set flags
 	jr	nz,devlstu	; do UNA mode dev list
 ;
-	ld	b,$F8		; hbios func: sysget
-	ld	c,$10		; sysget subfunc: diocnt
-	rst	08		; call hbios, E := device count 
+	ld	bc,BC_SYSGET_DIOCNT ; hbios func: sysget subfunc: diocnt
+	rst	08		; call hbios, E := device count
 	ld	b,e		; use device count for loop count
 	ld	c,0		; use C for device index
 devlist1:
@@ -485,6 +503,496 @@ devlstu1:
 	inc	c		; next drive
 	djnz	devlstu1	; loop as needed
 	ret			; return
+;
+; -------------------------------------------------
+; /B=XXX - Bootup drive Assignment
+;
+; Variable used across the entire bootdr: function
+; - (mapwrk) working table of assignments
+; - (mapadr) pointer to next drive assignment in mapwrk
+; - (dstdrv) Drive letter of next assigment 0-15
+; - (tmpstr) List of Option letters being processed
+;
+bootdr:
+	; command line processing mapping options into (tmpstr)
+	inc	hl		; next char after the /B expect a delimeter
+	call	nonblank	; skip ws
+	cp	'='
+	inc	hl
+	call	nonblank	; skip ws
+	call	getalpha	; options string into (tmpstr)
+;
+	; defaulting loop for normal disk boot starting at A:
+	ld	hl,mapwrk	; DE := working drive map
+	ld	(mapadr),hl	; save pointer o next drive maping
+	xor	a		; next dest drive letter start at A:
+	ld	(dstdrv),a
+bootdr1:
+	; process next letter in the cmd line options
+	ld	a,(tmpstr)	; next letter
+	res	5,a		; FORCE UPPERCASE (IMPERFECTLY)
+	; Case Statement
+	ld	hl,bootdr2	; return address for below JP
+	push	hl		; when RET from below JP, return
+	cp	'A'
+	jp	z,bootdra	; RAM
+	cp	'B'
+	jp	z,bootdrb	; BOOT
+	cp	'F'
+	jp	z,bootdrf	; FLOPPY
+	cp	'H'
+	jp	z,bootdrh	; HARD DRIVES (improved)
+	cp	'L'
+	jp	z,bootdrl	; HARD DRIVES (legacy)
+	cp	'O'
+	jp	z,bootdro	; ROM
+	cp	'P'
+	jp	z,bootdrp	; PRESERVE/KEEP (SKIP)
+	cp	'S'
+	jp	z,bootdrs	; SLICES (OFF BOOT DRIVE)
+	cp	'X'
+	jp	z,bootdrx	; UNASSIGN
+	cp	'Z'
+	jp	z,bootdrz	; UNASSIGN ALL REMAINING
+	; no valid option was found just ignore and continue
+	; potentially signal an error
+	pop	hl		; remove the return address, since no match
+bootdr2:
+	jr	c,bootdr4	; if overflowed, exhaused drives then error
+	; bump to next letter in tmp str, by shifing string left in buffer
+	ld	hl,tmpstr+1	; copy from +1 in buffer
+	ld	a,(hl)		; copy next char for Z check
+	ld	de,tmpstr	; copy down to +0 in buffer
+	ld	bc,16		; buffer is 16 bytes
+	ldir
+	or	a		; set flags based on next char
+	jr	nz,bootdr1	; loop if character found
+bootdr3:
+	xor	a		; success
+	ret			; finished
+bootdr4:
+	or	$ff		; failure
+	ret			; finished
+;
+; -------------------------------------------------
+; /B=XXX AGORITHMS START HERE
+;
+; PRESERVE, SKIP 1, JUST LOOP
+bootdrp:
+	; determine the drive being preserved, calc estimate
+	ld	hl,(mapadr)	; address of next map entry in table. Indirect
+	ld	a,(hl)		; the unit number of drive being skipped
+	call	bootdest	; for unit in A, calc the heap estimate -> DE
+	; subtract bytes from estimate, not not checking for overflow
+	ld	hl,(heaprem)	; remaing heap estimate
+	or	a		; clear carry
+	sbc	hl,de		; subtract slice from heap estimate
+	ld	(heaprem),hl	; update estimate based on adding slice
+	; and skip to next drive
+	call	bootinc		; Skip to next drive letter
+	ret			; Finished
+;
+; EXCLUDE / UNASSIGNED / GAP
+bootdrx:
+	ld	a,$FF		; $FF (unit) signal a drive not assigned
+	ld	(unit),a	; set unit
+	xor	a		; slice 0
+	ld	(slice),a	; save as slice to assign.
+	ld	hl,SIZ_DMAP	; heap used is 4 bytes for drvmap entry only
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	call	bootadd 	; assign the slice
+	ret			; Finished, returning error
+;
+; EXCLUDE / UNASSIGNED - ALL REMAINING
+bootdrz:
+	ld	a,$FF		; $FF (unit) signal a drive not assigned
+	ld	(unit),a	; set unit
+	xor	a		; slice 0
+	ld	(slice),a	; save as slice to assign.
+	ld	hl,0		; all remainging drives consume 0 bytes
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+bootdrz1:
+	call	bootadd 	; assign the slice
+	jr	nc,bootdrz1	; NC still can continue to allocate
+	xor	a		; success
+	ret			; Finished
+;
+; BOOT DRIVE
+bootdrb:
+	ld	bc,BC_SYSGET_BOOTINFO	; HBIOS SysGet; BootInfo
+	rst	08		; Get boot disk unit/slice in DE
+	ld	a,e		; boot slice returned in E
+	ld	(slice),a	; save as slice to assign.
+	ld	a,d		; boot unit id returned in D
+	ld	(unit),a	; save as unit number
+	call	bootdest	; calc estimat of unit A store in (sliceem)
+	call	bootadd 	; add the boot drive slice
+	ret			; Finished, returning error
+;
+; RAM DRIVE
+bootdra:
+	ld	a,$FF		; specific mask to include all BITS
+	ld	(atrmask),a	; mask for device attributes
+	ld	a,%00010101	; specific mask for RAM DRIVE.
+	ld	(atrcomp),a	; compare to after mask
+	ld	hl,EST_MD	; estimate of heap used. for RAM ROM
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	call	bootadds	; do single slice assignment
+	ret			; Finished, returning error
+;
+; ROM DRIVE
+; Note: if MDFFENABLE is enabled, this wont select the ROM since the
+; driver returns MD_AFSH (%00010111), and we cannot generalise this mask
+bootdro:
+	ld	a,%11111101	; ROM mask, excluding Bit 1, which varies
+	ld	(atrmask),a	; mask for device attributes
+	ld	a,%00010100	; for values "MD_AROM", "MD_AFSH"; Att="000101x0"
+	ld	(atrcomp),a	; compare to after mask
+	ld	hl,EST_MD	; estimate of heap used. for RAM ROM
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	call	bootadds	; do single slice assignment
+	ret			; Finished, returning error
+;
+; FLOPPY DRIVE(S)
+bootdrf:
+	ld	a,%11000000	; device parameters (Removable Floppy)
+	ld	(atrmask),a	; mask for device attributes
+	ld	(atrcomp),a	; compare to after mask
+	ld	hl,EST_FD	; estimate of heap used. for Floppy
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	call	bootadds	; do single slice assignment
+	ret			; Finished, returning error
+;
+; SLICES (From Boot Drive Only)
+bootdrs:
+	; find the boot drive, save unit /slice number
+	ld	a,(mapwrk)	; boot drive unit number
+	ld	(unit),a	; save as unit number to assign
+	ld	hl,EST_HD	; estimate of heap used, for HDD
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	ld	a,0		; starting slice number
+bootdrs1:
+	; A is next slice to assign when entering here
+	ld	(slice),a	; save as slice to assign.
+	call	bootadd 	; add the slice, return Z - past the last drive
+	jr	c,bootdrs2	; drives exhaused, finish up
+	ld	a,(slice)	; get the slice just consumed
+	inc	a		; next slice
+	JR	bootdrs1	; loop round
+bootdrs2:
+	xor	a		; success
+	ret
+;
+; HARD DRIVE(S) - Improved from CBIOS - More Drives
+bootdrh:
+	ld	a,%00100000	; device parameters (High Capacity)
+	ld	(atrmask),a	; mask for device attributes
+	ld	(atrcomp),a	; compare to after mask
+	ld	hl,EST_HD	; estimate of heap used, for HDD
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	; count the number of drives matching criteria
+	call	bootcnt		; return Drive count in A
+	; compute Slices per volume from drv count in A
+	call	bootdrh1	; return SPV in A
+	ld	(slicec),a	; slice per volume count
+	; do the drive assignment
+	call	bootaddn	; do the drive assignment
+	ret			; Finished returning error
+;
+; Input A contains device count return SPV (slices per volume) in A
+bootdrh1:
+	ld	e,a		; divide by by e, the number of devices
+	ld	a,(dstdrv)	; next destination drive to map, 0-15
+	ld	d,a		; put it in d
+	ld	a,16 		; total number of drives
+	sub	d		; less assigned = remaining
+	; above assumes we have space remaining on heap for all drives
+	; ideally should take A=Min( A, (heaprem)/EST_HD ) before division
+	ld	d,a		; divides d - remaing drives
+; The following routine divides d by e and places the quotient in d and the remainder in a
+; https://wikiti.brandonw.net/index.php?title=Z80_Routines:Math:Division
+	xor	a
+	ld	b, 8
+bootdrh2:
+	sla	d
+	rla
+	cp	e
+	jr	c, $+4
+	sub	e
+	inc	d
+	djnz	bootdrh2
+	ld	a,d		; end of the division the quotiant in A
+	ret			; return it
+;
+; HARD DRIVE(S) - Legacy (from CBIOS)
+bootdrl:
+	ld	a,%00100000	; device parameters (High Capacity)
+	ld	(atrmask),a	; mask for device attributes
+	ld	(atrcomp),a	; compare to after mask
+	ld	hl,EST_HD	; estimate of heap used, for HDD
+	ld	(slicmem),hl	; save estmate so heap space can be counted
+	;
+	; count the number of drives matching criteria
+	call	bootcnt		; return Drive count in A
+	;
+	; compute Slices per volume from drv count in A
+	call	bootdrl1	; return SPV in A
+	ld	(slicec),a	; slice per volume count
+	;
+	; do the drive assignment
+	call	bootaddn	; do the drive assignment
+	xor	a		; Success
+	ret			; Finished
+;
+; Input A contains device count return SPV (slices per volume) in A
+bootdrl1:
+	ld	e,8		; ASSUME 8 SLICES PER VOLUME
+	dec	a		; DEC ACCUM TO CHECK FOR COUNT = 1
+	jr	z,bootdrl2	; YES, SKIP AHEAD TO IMPLEMENT 8 HDSPV
+	ld	e,4		; NOW ASSUME 4 SLICES PER VOLUME
+	dec	a		; DEC ACCUM TO CHECK FOR COUNT = 2
+	jr	z,bootdrl2	; YES, SKIP AHEAD TO IMPLEMENT 4 HDSPV
+	ld	e,2		; IN ALL OTHER CASES, WE USE 2 HDSPV
+bootdrl2:
+	ld	a,e
+	ret
+;
+; -------------------------------------------------
+; Memory allocation estimates for each device type
+;
+SIZ_DBUF	.EQU 	128		; actual size of directory buffer
+SIZ_DPH		.EQU	20		; actual size of a DPH structure
+SIZ_DMAP	.EQU	4		; actual bytes per drvmap entry
+;
+EST_FIXED	.EQU	SIZ_DPH+SIZ_DMAP ; overhead for all assignments
+;
+EST_MD		.EQU	EST_FIXED + 24	; estimated size for ram/rom
+EST_FD		.EQU	EST_FIXED + 192 ; estimated size for floppy
+EST_HD		.EQU	EST_FIXED + 256 ; estimated size hdd (CKS/ALS)
+;
+; -------------------------------------------------
+; /B=XXX - General Purpose Functions
+;
+; Determine Slice Estimate for Unit in A reg
+; storing estimate in (slicmem), and DE
+;
+bootdest:
+	; is it assigned
+	ld	c,a		; store unit (passed in A) for hbios call
+	ld	de,SIZ_DMAP	; assume unassigned, 4 bytes for drvmap
+	cp	$FF		; unassigned?
+	jr	z,bootdest2	; finished at this point.
+	; check for UNA mode, before calling HBIOS
+	ld	a,(unamod)	; get UNA mode flag, and set Flags
+	or	a		; if UNA Mode then dont do hbios lookup
+	jr	nz,bootdest1	; use worst case scenario (future una call)
+	; determine device type by hbios lookup
+	ld	b,BF_DIODEVICE  ; get device info
+	rst	08		; Note C was set above
+	; now work out the bytes to allocate
+	ld	a,d		; device type to A
+	ld	de,EST_MD	; assume md size
+	cp	DIODEV_MD	; ram/rom MD device
+	jr	z,bootdest2	; finished at this point
+	ld	de,EST_FD	; assume floppy
+	cp	DIODEV_FD	; floppy device
+	jr	z,bootdest2	; finished at this point
+bootdest1:
+	ld	de,EST_HD	; otherwise assume HD
+bootdest2:
+	ld	(slicmem),de
+	ret
+;
+; Count Number of Devices
+; (atrmask) mask the device attribtes
+; (atrcomp) compare to set zero flag
+; return A number of drives mathing the attributes
+bootcnt:
+	; loop thru hbios units looking for device type/unit match
+	ld	bc,BC_SYSGET_DIOCNT ; hbios func: sysget subfunc: diocnt
+	rst	08		; call hbios, E := device count
+	ld	b,e		; use device count for loop count
+	ld	c,0		; use C for device index C = 0
+	ld	l,0		; will contain the drive count
+bootcnt1:
+	call	bootmat		; perform the match on device C, Z if match
+	jr	nz,bootcnt2	; not matching, skip and continue loop
+	inc	l		; same so incrment the counter
+bootcnt2:
+	inc	c		; next drive letter
+	djnz	bootcnt1	; loop
+	ld	a,l		; return the count in A register
+	or	a		; ensure registers are set correctly
+	ret			; Finished
+;
+; Loop though all devices add a single slice based on device attributes
+; See method below for documentation. Noting (slice) is defaulted to 1
+bootadds
+	ld	a,1
+	ld	(slicec),a
+	; fall through to bootaddn
+;
+; Loop though all devices add N slice(s) based on device attributes
+; (atrmask) mask the device attribtes
+; (atrcomp) compare to set zero flag
+; (slicec) number of slices
+; return C flag
+;   C have expended all drives
+;  NC still can continue to allocate
+;   Z otherwise successfully completed
+bootaddn
+	; loop thru hbios units looking for device type/unit match
+	ld	bc,BC_SYSGET_DIOCNT ; hbios func: sysget subfunc: diocnt
+	rst	08		; call hbios, E := device count
+	ld	b,e		; use device count for loop count
+	ld	c,0		; use C for device index C = 0
+bootaddn1:
+	call	bootmat		; perform the match on device C, Z if match
+	jr	nz,bootaddn4	; not same skip volume, continue loop
+	; save the disk unit
+	ld	a,c		; get the unit id back into A
+	ld	(unit),a	; unit to add, if we add it.
+	; setup inner loop
+	push	bc		; save loop control for outer loop
+	ld	a,(slicec)	; count of slices to assign
+	ld	b,a		; use device count for loop count
+	ld	c,0		; use C for slice index slice = 0
+bootaddn2:
+	; entering here C contains updated slice
+	ld	a,c		; slice number
+	ld 	(slice),a	; slice number
+	; assign the slice and loop
+	push	bc		; save loop control
+	call	bootadd 	; add the slice
+	pop	bc		; restore loop
+	jr	c,bootaddn3	; if bootadd, ran out of drives to allocate
+	inc	c		; next slice
+	djnz	bootaddn2	; inner loop
+bootaddn3:
+	; finish inner loop for next disk unit
+	pop	bc		; restore loop control for outer
+	ret	c		; return if no drives left to allocate
+bootaddn4:
+	; continue looping to next unit
+	inc	c		; next device
+	djnz	bootaddn1	; outer loop
+	xor	a		; success
+	ret			; Finished
+;
+; Add a Single Drive.
+; based on (unit) and (slice) variables
+; This routine will skip if drive already assigned
+; return C flag
+;   C have expended all drives
+;  NC still can continue to allocate
+bootadd:
+	; check we are not already past last (P:) drive
+	ld	hl,dstdrv	; destination drive
+	ld	a,15
+	cp	(hl)		; C set if >= 16
+	ret	c		; Return with carry, cannot assign.
+	; do we need to perform duplicate check
+	ld	a,(dstdrv)	; next destination drive to map, could be A: (=0)
+	or	a		; is it A:
+	jr	z,bootadd1	; nothing to check  we are assigning the A: drive
+	; perform duplicate check before assignment
+	ld	b,a		; B number of entries to check
+	ld	hl,mapwrk	; HL point to working drive map table to compare to
+	ld	de,unit		; DE comparison, unit/slice are ordered (psudo mapwrk entry)
+	call	valid3		; perform a duplicate check (REUSED)
+	jr	z,bootinc1	; Z - found a duplicate, exit out
+;
+bootadd1:
+	; check we have enough heap to allocate
+	ld	hl,(heaprem)	; remaing heap estimate
+	ld	de,(slicmem)	; memory alloc per drive
+	or	a		; clear carry
+	sbc	hl,de		; subtract slice from heap estimate
+	ret	c		; overflow (not enough heap) so abort
+	ld	(heaprem),hl	; update estimate based on sub of mem
+	; actually assign it.
+	ld	hl,(mapadr)	; address of next map entry in table
+	ld	a,(unit)	; the unit number
+	ld	(hl), a		; write unit number to Table
+	inc	hl
+	ld	a,(slice)	; the slice
+	ld	(hl), a		; write slice to the table
+	; show the new assignment
+	push	bc
+	push	de
+	ld	a,(dstdrv)	; destination drive
+	call	showone		; show it's new value
+	pop	de
+	pop	bc
+	; signal the change has occured
+	ld	hl,modcnt	; point to mod count
+	inc	(hl)		; increment it
+	; fall through to bootinc and inc target drive
+;
+; Increment to the next drive (A-P)
+; return C flag
+;   C have expended all drives
+;  NC still can continue to allocate
+bootinc:
+	; check we are not already past last (P:) drive
+	ld	hl,dstdrv	; destination drive
+	ld	a,15
+	cp	(hl)		; C set if >= 16
+	ret	c		; Return with carry, cannot increment.
+	; actually increment it
+	inc	(hl)		; increment destination drive (A-P)
+	ld	hl,(mapadr)	; address in working assignment table (mapwrk)
+	ld	bc,4
+	add	hl,bc
+	ld	(mapadr),hl	; move address to next location in map
+bootinc1:
+	ld	hl,dstdrv	; destination drive
+	ld	a,15
+	cp	(hl)		; C set if >= 16
+	ret
+;
+; Does Disk Unit Meet matching Criteria
+; pass in C which is the unit, ret Z if matching:
+;  * (atrmask) mask the device attribtes
+;  * (atrcomp) compare to set zero flag
+; registers BC DE HL are preserved
+bootmat:
+	push	hl
+	push	de
+	push	bc		; preserve
+	; get the disk unit attributes
+	ld	b,BF_DIODEVICE	; hbios func: diodevice C:= DISK UNIT
+	rst	08		; call hbios, C := device attributes
+	; do the attribute comparison
+	ld	a,(atrmask)	; attribute bit mask
+	and	c		; mask with device attributes from hbios
+	ld	c,a		; move value back to c
+	ld	a,(atrcomp)	; value parameter to compare with
+	cp	c		; do the comparison : Z if matching
+	jr	nz,bootmat3	; not matching, just return, NZ go no further
+	; Attributes match - did caller request high capacity device
+	bit	5,a		; high capacity flag passed in (atrcomp)
+	jr	NZ,bootmat1	; IF hig capacity, test if hd is onlne
+	; Attributes match - but NOT high capacity
+	xor	a		; Result = Z
+	jr	bootmat3	; and return
+bootmat1:
+	; Attributes match - and IS high capacity
+	pop	bc		; get C para back (unit)
+	push	bc
+	; Sense Media
+	ld	b,BF_DIOMEDIA	; HBIOS FUNC: SENSE MEDIA
+	ld	e,1		; PERFORM MEDIA DISCOVERY
+	rst	08		; DO IT
+	; returns NZ if error (no media), and Z if no error (media detected)
+	; can just return this flag
+bootmat3:
+	pop	bc
+	pop	de
+	pop	hl		; restore and return
+	ret
+;
+; ----------------------------------------------------------------
 ;
 ; Install the new drive map into CBIOS
 ;
@@ -546,7 +1054,7 @@ install3:
 	ld	(heaptop),de	; DE has next byte available
 ;
 	; allocate directory buffer
-	ld	hl,128		; size of directory buffer
+	ld	hl,SIZ_DBUF	; size of directory buffer
 	call	alloc		; allocate the space
 	jp	c,instovf	; handle overflow error
 	ld	(dirbuf),hl	; ... and save in dirbuf
@@ -574,8 +1082,7 @@ dph_init2:
 	ld	a,(hl)		; unit to A
 	push	bc		; save loop control
 	push	hl		; save drive map pointer
-	;ld	hl,16		; size of a DPH structure
-	ld	hl,20		; size of a DPH structure
+	ld	hl,SIZ_DPH	; size of a DPH structure
 	call	alloc		; allocate space for dph
 	jp	c,instovf	; handle overflow error
 	push	hl		; save DPH location
@@ -608,8 +1115,14 @@ dph_init3:
 	ld	de,msgmem	; add description
 	call	prtstr		; and print it
 ;
+#if 0
+	call	crlf
+	ld	bc,(heaprem)
+	call	prthexword
+#endif
+;
 	call	drvrst		; perform BDOS drive reset
-;	
+;
 	xor	a		; signal success
 	ret			; done
 ;
@@ -653,25 +1166,25 @@ makdphuna1:	; handle ram/rom
 makdphwbw:	; determine appropriate dpb (WBW mode, unit number in A)
 ;
 	ld	c,a		; unit number to C
-	ld	b,$17		; HBIOS: Report Device Info
+	ld	b,BF_DIODEVICE	; HBIOS: Report Device Info
 	rst	08		; call HBIOS, return w/ device type in D, physical unit in E
 	ld	a,d		; device type to A
-	cp	$00		; ram/rom?
+	cp	DIODEV_MD	; ram/rom?
 	jr	nz,makdph00	; if not, skip ahead to other types
 	ld	a,e		; physical unit number to A
-	ld	e,1		; assume rom
+	ld	e,MID_MDROM	; assume rom
 	cp	$01		; rom?
 	jr	z,makdph0	; yes, jump ahead
-	ld	e,2		; otherwise ram
+	ld	e,MID_MDRAM	; otherwise ram
 	jr	makdph0		; jump ahead
-makdph00:	
-	ld	e,6		; assume floppy
-	cp	$01		; floppy?
+makdph00:
+	ld	e,MID_FD144	; assume floppy
+	cp	DIODEV_FD	; floppy?
 	jr	z,makdph0	; yes, jump ahead
-	ld	e,3		; assume ram floppy
-	cp	$02		; ram floppy?
+	ld	e,MID_RF	; assume ram floppy
+	cp	DIODEV_RF	; ram floppy?
 	jr	z,makdph0	; yes, jump ahead
-	ld	e,4		; everything else is assumed to be hard disk
+	ld	e,MID_HD	; everything else is assumed to be hard disk
 	jr	makdph0		; yes, jump ahead
 ;
 makdph0:
@@ -689,7 +1202,7 @@ makdph1:
 	pop	hl		; hl := start of dph
 	ld	a,8		; size of dph reserved area
 	call	addhl		; leave it alone (zero filled)
-;	
+;
 	ld	bc,(dirbuf)	; address of dirbuf
 	ld	(hl),c		; plug dirbuf
 	inc	hl		; ... into dph
@@ -716,7 +1229,7 @@ makdph2:
 ;
 	; HL := alloc size, DE bumped
 	ex	de,hl
-	ld	e,(hl)		; get size to allocate 
+	ld	e,(hl)		; get size to allocate
 	inc	hl		; ...
 	ld	d,(hl)		; ... into HL
 	inc	hl		; and bump DE
@@ -730,7 +1243,7 @@ makdph2:
 	; allocate memory
 	call	alloc		; do the allocation
 	jp	c,instovf	; bail out on overflow
-	
+
 makdph3:
 	; swap hl and bc
 	push	bc		; bc -> (sp)
@@ -741,7 +1254,7 @@ makdph3:
 	ld	(hl),c		; save cks/als buf
 	inc	hl		; ... address in
 	ld	(hl),b		; ... dph and bump
-	inc	hl		; ... to next dph entry	
+	inc	hl		; ... to next dph entry
 	xor	a		; signal success
 	ret
 ;
@@ -751,7 +1264,7 @@ instcpm3:
 	; swicth to sysbnk
 	ld	a,($FFE0)	; get current bank
 	push	af		; save it
-	ld	bc,$F8F2	; HBIOS Get Bank Info
+	ld	bc,BC_SYSGET_BNKINFO ; HBIOS Get Bank Info
 	rst	08		; call HBIOS, E=User Bank
 	ld	a,e		; HBIOS User Bank
 	call	$FFF3		; HBIOS BNKSEL
@@ -763,8 +1276,7 @@ instcpm3:
 	ld	h,(hl)		; ...
 	ld	l,a		; ...
 	ld	(dphadr),hl	; save starting dphadr
-	
-	
+
 	ld	hl,(drvtbl)	; get drive table in HL
 	ld	de,mapwrk	; DE := working drive map
 	ld	b,16
@@ -783,7 +1295,7 @@ instc1:
 	inc	de		; ...
 	jr	instc3		; resume loop without copy
 ;
-instc2:	
+instc2:
 	push	hl		; save drvtbl entry adr
 	push	de		; save mapwrk entry adr
 	ld	de,(dphadr)	; get cur dph adr
@@ -865,15 +1377,15 @@ alloc:
 	ex	de,hl		; de=new heaptop, hl=heaplim
 	sbc	hl,de		; heaplim - heaptop
 	jr	c,allocx	; c set on overflow error
-	; allocation succeeded, commit new heaptop              
+	; allocation succeeded, commit new heaptop
 	ld	(heaptop),de	; save new heaptop
-allocx:                         
+allocx:
 	pop	hl		; return value to hl
 	pop	de		; recover de
 	ret
 ;
 ; Scan drive map table for integrity
-; Currently just checks for multiple drive 
+; Currently just checks for multiple drive
 ;   letters referencing a single file system
 ;
 valid:
@@ -905,6 +1417,14 @@ valid2:		; setup for inner loop
 	call	addhl		; point to entry following
 	pop	de		; de points to comparison entry
 ;
+; Scan for a match in (mapwrk)
+; The following comparison code is called elsewhere, not just from above
+; (please respect the contract)
+; hl : pointer to start of items to scan check in map
+; de is the invarient (fixed) entry in the table to compare against
+; b : is the number of items to check
+; return  Z - Found a duplicate comparison=0
+; return NZ - No Matches found (a=$ff)
 valid3:		; inner loop
 	; bypass unassigned drives (only need to test 1)
 	ld	a,(hl)		; get first drive unit in A
@@ -981,7 +1501,7 @@ drvswap:
 	ld	a,(srcdrv)	; get the source drive
 	call	chkdrv		; valid drive?
 	ret	nz		; abort if not
-	ld	hl,(drives)	; load source/dest in DE
+	ld	hl,(drives)	; load source/dest in HL
 	ld	a,h		; put source drive num in a
 	cp	l		; compare to the dest drive num
 	jp	z,errswp	; Invalid swap request, src == dest
@@ -1001,7 +1521,7 @@ drvswap:
 	rlca
 	call	addhl
 	ld	(dstptr),hl
-;	
+;
 	; 1) dest -> temp
 	ld	hl,(dstptr)
 	ld	de,tmpent
@@ -1064,20 +1584,19 @@ drvmap1:	; loop through device table looking for a match
 	djnz	drvmap1		; and loop
 	jp	errdev
 ;
-drvmap2:	
+drvmap2:
 	; convert index to device type id
 	ld	a,c		; index to accum
 	ld	(device),a	; save as device id
 ;
 	; loop thru hbios units looking for device type/unit match
-	ld	b,$F8		; hbios func: sysget
-	ld	c,$10		; sysget subfunc: diocnt
-	rst	08		; call hbios, E := device count 
+	ld	bc,BC_SYSGET_DIOCNT ; hbios func: sysget subfunc: diocnt
+	rst	08		; call hbios, E := device count
 	ld	b,e		; use device count for loop count
 	ld	c,0		; use C for device index
 drvmap3:
 	push	bc		; preserve loop control
-	ld	b,$17		; hbios func: diodevice
+	ld	b,BF_DIODEVICE	; hbios func: diodevice
 	rst	08		; call hbios, D := device, E := unit
 	pop	bc		; restore loop control
 	ld	a,(device)
@@ -1099,7 +1618,7 @@ drvmap5:
 	call	chkdev		; check validity
 	pop	bc		; restore unit
 	ret	nz		; bail out on error
-	
+
 	; resolve the CBIOS DPH table entry
 	ld	a,(dstdrv)	; dest drv num to A
 	call	chkdrv		; valid drive?
@@ -1206,12 +1725,12 @@ showall:
 	ld	b,16		; 16 drives possible
 	ld	c,0		; map index (drive letter)
 ;
-	ld	a,b		; load count
-	or	$FF		; signal no action
-	ret	z		; bail out if zero
+;	ld	a,b		; load count
+;	or	$FF		; signal no action
+;	ret	z		; bail out if zero
 ;
 showall1:	; loop
-	ld	a,c		;
+;	ld	a,c		;
 	push	bc		; save loop control
 	call	showass
 	pop	bc		; restore loop control
@@ -1226,8 +1745,9 @@ showall1:	; loop
 showass:
 ;
 	; setup HL to point to desired entry in table
-	ld	c,a		; save incoming drive in C
+;	ld	c,a		; save incoming drive in C
 	ld	hl,mapwrk	; HL = address of drive map
+	ld	a,c
 	rlca
 	rlca
 	call	addhl		; HL = address of drive map table entry
@@ -1301,7 +1821,7 @@ prtdev:
 	or	a		; set flags
 	ld	a,e		; put device num back
 	jr	nz,prtdevu	; print device in UNA mode
-	ld	b,$17		; hbios func: diodevice
+	ld	b,BF_DIODEVICE	; hbios func: diodevice
 	ld	c,a		; unit to C
 	rst	08		; call hbios, D := device, E := unit
 	push	de		; save results
@@ -1326,7 +1846,7 @@ prtdevu:
 	push	bc
 	push	de
 	push	hl
-;	
+;
 	; UNA mode version of print device
 	ld	b,a		; B := unit num
 	push	bc		; save for later
@@ -1389,15 +1909,14 @@ chkdrv:
 ;
 chkdev:		; HBIOS variant
 	push	af		; save incoming unit
-	ld	b,$F8		; hbios func: sysget
-	ld	c,$10		; sysget subfunc: diocnt
+	ld	bc,BC_SYSGET_DIOCNT ; hbios func: sysget subfunc: diocnt
 	rst	08		; call hbios, E := device count
 	pop	af		; restore incoming unit
 	cp	e		; compare to unit count
 	jp	nc,errdev	; if too high, error
 ;
 	; get device/unit info
-	ld	b,$17		; hbios func: diodevice
+	ld	b,BF_DIODEVICE	; hbios func: diodevice
 	ld	c,a		; unit to C
 	rst	08		; call hbios, C := device attributes
 ;
@@ -1476,7 +1995,7 @@ prtstr1:
 ;
 prtstr2:
 	pop	de		; restore registers
-	ret	
+	ret
 ;
 ; Print the value in A in hex without destroying any registers
 ;
@@ -1499,7 +2018,7 @@ prthexword:
 	ld	a,b
 	call	prthex
 	ld	a,c
-	call	prthex 
+	call	prthex
 	pop	af
 	ret
 ;
@@ -1523,9 +2042,9 @@ hexascii:
 hexconv:
 	and	$0F	     	; low nibble only
 	add	a,$90
-	daa	
+	daa
 	adc	a,$40
-	daa	
+	daa
 	ret
 ;
 ; Print value of A or HL in decimal with leading zero suppression
@@ -1871,8 +2390,15 @@ drives:
 dstdrv	.db	0		; destination drive
 srcdrv	.db	0		; source drive
 device	.db	0		; source device
+; note (unit and slice) need to be kept ordered since they are used
+; in code forming a temp table entry (comparison purposes). See bootadd:
 unit	.db	0		; source unit
 slice	.db	0		; source slice
+;
+atrmask	.db	0		; device attributes mask before compare
+atrcomp	.db	0		; device attributes compare to
+slicec	.db	1		; number of slices to assign for each volume
+slicmem	.dw	280		; memory to allocate to next slice assigment
 ;
 unamod	.db	0		; $FF indicates UNA UBIOS active
 modcnt	.db	0		; count of drive map modifications
@@ -1880,10 +2406,11 @@ modcnt	.db	0		; count of drive map modifications
 srcptr	.dw	0		; source pointer for copy
 dstptr	.dw	0		; destination pointer for copy
 tmpent	.fill	4,0		; space to save a table entry
-tmpstr	.fill	9,0		; temporary string of up to 8 chars, zero term
+tmpstr	.fill	17,0		; temporary string of up to 16 chars, zero term
 ;
 heaptop	.dw	0		; current address of top of heap memory
 heaplim	.dw	0		; heap limit address
+heaprem	.dw	$7FFF		; estimate of heap remaining, (before allocate)
 ;
 dirbuf	.dw	0		; directory buffer location
 ;
@@ -1893,6 +2420,7 @@ scbop	.db	$FF		; set a byte
 scbval	.dw	$FF		; value to set
 ;
 mapwrk	.fill	(4 * 16),$FF	; working copy of drive map
+mapadr	.dw	mapwrk		; working pointer into mapwrk used by /B=
 ;
 devtbl:				; device table
 	.dw	dev00, dev01, dev02, dev03
@@ -1936,17 +2464,19 @@ stack	.equ	$		; stack top
 ; Messages
 ;
 indent	.db	"   ",0
-msgban1	.db	"ASSIGN v1.8 for RomWBW CP/M ",0
+msgban1	.db	"ASSIGN v2.0 for RomWBW CP/M ",0
 msg22	.db	"2.2",0
 msg3	.db	"3",0
-msbban2	.db	", 13-Oct-2023",0
+msbban2	.db	", 21-Dec-2024",0
 msghb	.db	" (HBIOS Mode)",0
 msgub	.db	" (UBIOS Mode)",0
-msgban3	.db	"Copyright 2023, Wayne Warthen, GNU GPL v3",0
+msgban3	.db	"Copyright 2024, Wayne Warthen, GNU GPL v3",0
 msguse	.db	"Usage: ASSIGN D:[=[{D:|<device>[<unitnum>]:[<slicenum>]}]][,...]",13,10
 	.db	"  ex. ASSIGN           (display all active assignments)",13,10
 	.db	"      ASSIGN /?        (display version and usage)",13,10
 	.db	"      ASSIGN /L        (display all possible devices)",13,10
+	.db	"      ASSIGN /B=OPTS   (perform assignment based on options)",13,10
+	.db	"      ASSIGN C:        (display assignment for C:)",13,10
 	.db	"      ASSIGN C:=D:     (swaps C: and D:)",13,10
 	.db	"      ASSIGN C:=FD0:   (assign C: to floppy unit 0)",13,10
 	.db	"      ASSIGN C:=IDE0:1 (assign C: to IDE unit0, slice 1)",13,10

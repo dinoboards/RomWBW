@@ -20,7 +20,7 @@
 
 Binary/**/*.mym
 Binary/**/*.pt3
-!Binary/CPNET/NetBoot/cpnos-wbw.sys
+!Binary/CPNET/NetBoot/*/cpnos.sys
 
 Source/**/eeprom
 Source/Apps/Assign.com
@@ -98,6 +98,7 @@ Tools/unix/zx/zx
 !Source/ZSDOS/*.[Cc][Oo][Mm]
 !Source/ZRC/*.bin
 !Source/ZRC512/*.bin
+!Source/EZ512/*.bin
 !Source/Z1RCC/*.bin
 !Source/ZZRCC/*.bin
 !Source/FZ80/*.bin
@@ -177,6 +178,7 @@ Source/Fonts/fontvgarcc.bin
 Source/Fonts/fontvgarcu.asm
 Source/HBIOS/build_env.cmd
 Source/HBIOS/hbios_env.sh
+Source/HBIOS/netboot.mod
 Source/HBIOS/RCEZ80_std.upd
 Source/HBIOS/RCZ80_std.upd
 Source/Images/blank144

@@ -61,7 +61,17 @@ call hbios_env.cmd
 if %Platform%==UNA goto :UNA
 
 ::
-:: Bring the previously build font files into this directory
+:: Determine proper variant of the NetBoot module to embed
+::
+
+if %Platform%==DUO (
+    set NetBoot=netboot-duo.mod
+) else (
+    set NetBoot=netboot-mt.mod
+)
+
+::
+:: Bring the previously build font files into this directory 
 ::
 
 copy ..\Fonts\font*.asm . || exit /b
@@ -89,10 +99,9 @@ call :asm usrrom || exit /b
 call :asm updater || exit /b
 call :asm imgpad2 || exit /b
 
-::
-:: Build components in Sub folders
-::
-pushd SysConfig && call Build || exit /b & popd
+:: Sysconf builds as both BIN and COM files
+tasm -t%CPUType% -g3 -fFF -dROMWBW sysconf.asm sysconf.bin sysconf_bin.lst || exit /b
+tasm -t%CPUType% -g3 -fFF -dCPM sysconf.asm sysconf.com sysconf_com.lst || exit /b
 
 ::
 :: Create additional ROM bank images by assembling components into
@@ -102,7 +111,7 @@ pushd SysConfig && call Build || exit /b & popd
 ::
 
 copy /b romldr.bin + dbgmon.bin + ..\zsdos\zsys_wbw.bin + ..\cpm22\cpm_wbw.bin osimg.bin || exit /b
-copy /b ..\Forth\camel80.bin + nascom.bin + ..\tastybasic\src\tastybasic.bin + game.bin + eastaegg.bin + netboot.mod + updater.bin + SysConfig\sysconfig.bin + usrrom.bin osimg1.bin || exit /b
+copy /b ..\Forth\camel80.bin + nascom.bin + ..\tastybasic\src\tastybasic.bin + game.bin + eastaegg.bin + %NETBOOT% + updater.bin + sysconf.bin + usrrom.bin osimg1.bin || exit /b
 
 if %Platform%==S100 (
     zxcc slr180 -s100mon/fh
@@ -157,6 +166,8 @@ if %ROMSize% gtr 0 (
 if exist %ROMName%.rom copy %ROMName%.rom ..\..\Binary || exit /b
 if exist %ROMName%.upd copy %ROMName%.upd ..\..\Binary || exit /b
 if exist %ROMName%.com copy %ROMName%.com ..\..\Binary || exit /b
+
+if exist sysconf.com copy sysconf.com ..\..\Binary\Apps\ || exit /b
 
 goto :eof
 
@@ -223,6 +234,8 @@ call Build RCZ80 skz_std || exit /b
 call Build RCZ80 zrc_std || exit /b
 call Build RCZ80 zrc_ram_std || exit /b
 call Build RCZ80 zrc512_std || exit /b
+call Build RCZ80 ez512_std || exit /b
+call Build RCZ80 k80w_std || exit /b
 call Build RCZ180 ext_std || exit /b
 call Build RCZ180 nat_std || exit /b
 call Build RCZ180 z1rcc_std || exit /b

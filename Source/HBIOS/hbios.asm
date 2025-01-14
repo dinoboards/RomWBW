@@ -319,7 +319,7 @@ SUPCTS	.EQU	FALSE		; SUPPRESS CTS DURING HBIOS BOOT
 ;
 RTCDEF	.EQU	0			; INIT DEF RTC LATCH VALUE
 ;
-; THE SC126 HAS AN I2C CIRCUIT AND THERE IS NO ASSOCAITED
+; THE SC126 HAS AN I2C CIRCUIT AND THERE IS NO ASSOCIATED
 ; DRIVER, SO WE SET THAT BIT HERE.  IT IS SET FOR ALL OF THE SCXXX
 ; SYSTEMS, BUT IS UNUSED ON ALL BUT THE SC126.  IT DOES NO HARM.
 ;
@@ -462,28 +462,28 @@ CB_HEAPTOP	.DW	0
 ;
 		.FILL	(HCB + $30 - $),0
 ;
-; First byte (header) of NVRAM = "W" if fully initialised, or a ststus byte
+; First byte (header) of NVRAM = "W" if fully initialised, or a status byte
 ; = 0 if no NVRAM detected, or = 1 If NVR exists, but not configured
 CB_SWITCHES	.DB	0		; this byte is set during init
 ;
 ;   Byte 0: (L)
-;     Bit 7-0 DISK BOOT SLice Number to Boot -> default = 0
+;     Bit 7-0 DISK BOOT Slice Number to Boot -> default = 0
 ;     Bit 7-0 ROM BOOT (alpha character) Application to boot -> default = "H"
 ;   Byte 1: (H)
-;     Bit 7 - ROM/DISK - Rom or Disk Boot -> Default=ROM=1 (BOOT_DEFAULT is Numeric/Alpha)
+;     Bit 7 - ROM/DISK - Rom or Disk Boot -> Default=ROM=1 (AUTO_CMD is Numeric/Alpha)
 ;     Bit 6-0 - DISK BOOT Disk Unit to Boot (0-127) -> default = 0
-CB_SWDEFBOOT	.DB	'H'		; (WORD) DEFAULT BOOT NVR OPTIONS. USED By ROMLDR
-		.DB	DBOOT_ROM	; Default Boot - ROM Application
+CB_SW_AB_OPT	.DB	'H'		; (WORD) AUTO BOOT NVR OPTIONS. USED By ROMLDR
+		.DB	BOPTS_ROM	; Boot Opts - ROM Application
 ;
 ;   Byte 0: (L)
 ;     Bit 7-6 - Reserved
 ;     Bit 5 - AUTO BOOT Auto boot, default=false (BOOT_TIMEOUT != -1)
 ;     Bit 4 - Reserved
 ;     Bit 3-0 - BOOT_TIMEOUT in seconds (0-15) 0=immediate -> default=3
-CB_SWAUTOB	.DB	0		; AUTO BOOT NVR OPTIONS. USED By ROMLDR
+CB_SW_AB_CFG	.DB	0		; AUTO BOOT NVR CONFIG. USED By ROMLDR
 ;
 ; CHECKSUM
-CB_SWITCHCK	.DB	0		; CHECKSUM (XOR=0), INCLUDES HEADER and CB_VERSION
+CB_SW_CKSUM	.DB	0		; CHECKSUM (XOR=0), INCLUDES HEADER and CB_VERSION
 ;
 ; STANDARD BANK ID'S START AT $D8. DEFAULT VALUES FOR 512KB SYSTEM WITH NO RESERVED BANKS
 ;
@@ -745,6 +745,18 @@ HBX_ROM:
 	RET				; DONE
 #ENDIF
 ;
+#IF (MEMMGR == MM_EZ512)
+	AND	$F			; HCS mask off high nibble
+	BIT	3,A			; HCS if banks $8-$F, set bit 6
+	JR	Z,MM_EZ512_BANK0TO7
+	AND	7			; HCS clear bit 3
+	OR	$40			; HCS set bit 6 for banks $8-$F
+MM_EZ512_BANK0TO7:
+	OR	$80			; HCS set bit 7 to keep RAM enabled
+	OUT	($0C),A			; HCS write to the bank control register
+	RET				; DONE
+#ENDIF
+;
 #IF (MEMMGR == MM_MBC)
 ;
   #IF (INTMODE == 1)
@@ -804,6 +816,8 @@ HBX_ROM:
 #ENDIF
 ;
 #IF (MEMMGR == MM_MON)
+;
+; *** DEPRECATED ***
 ;
 ; CURRENTLY ASSUMES FIRST 16 PAGES ARE RAM FOLLOWED BY 16 PAGES OF ROM.
 ; SO, WE MAP HBIOS BANKS $00-$0F (ROM SELECT) TO $10-$%1F AND HBIOS
@@ -1137,7 +1151,7 @@ HBX_INTSTK	.EQU	$
 ; ---	--------------	--------------  --------------	--------------	--------------
 ; 0	CTC0A		INT1 -+               -+	      -+	HCCARCV -+
 ; 1	CTC0B		INT2  |                |	       |	HCCASND  |
-; 2	CTC0C		TIM0  |                | IM2	       | IM2	NABUKB	 | IM2
+; 2	CTC0C		TIM0  |                | IM2	PS2KBD | IM2	NABUKB	 | IM2
 ; 3	CTC0D		TIM1  |                | INT	       | INT	VDP	 | INT
 ; 4	UART0		DMA0  | Z180	UART0  | VEC	UART0  | VEC	OPTCRD0  | VEC
 ; 5	UART1		DMA1  | CPU	UART1  | GEN	UART1  | GEN	OPTCRD1  | GEN
@@ -2348,7 +2362,7 @@ HB_CPU1:
 ; EARLY DRIVER INITIALIZATION
 ;--------------------------------------------------------------------------------------------------
 ;
-; SOME DRIVERS NEED TO BE CALLED AS EARLY AS WE CAN ONE AN OPERATING
+; SOME DRIVERS NEED TO BE CALLED AS EARLY AS WE CAN ONCE AN OPERATING
 ; ENVIRONMENT IS ESTABLISHED.
 ;
 #IF (CPUFAM == CPU_EZ80)
@@ -2361,7 +2375,7 @@ HB_CPU1:
 	CALL	SN76489_PREINIT
 #ENDIF
 #IF (DSRTCENABLE)
-	; THE DSRTC NEEDS TO BE INITIALIZED IN ORDER TO PERFROM THE
+	; THE DSRTC NEEDS TO BE INITIALIZED IN ORDER TO PERFORM THE
 	; CPU SPEED DETECTION BELOW.
 	CALL	DSRTC_PREINIT
 #ENDIF
@@ -2753,7 +2767,7 @@ Z280_TC	.EQU	CPUOSC / 4 / 50 / 2	; TIME CONSTANT
 	LD	(HB_BOOT_REC),A		; SAVE FOR LATER
   #ENDIF
   #IF ((PLATFORM == PLT_SBC) | (PLATFORM == PLT_MBC))
-    #IF (BT_REC_TYPE == BT_REC_SBC01)
+    #IF (BT_REC_TYPE == BT_REC_SBCB0)
 	LD	A,%00100000		; DISABLE RTC AND
 	OUT	(RTCIO),A		; DRQ DRIVER READ
 	IN	A,(RTCIO)		; BIT 0 (DRQ).
@@ -2772,6 +2786,17 @@ SAVE_REC_M:
     #ENDIF
     #IF (BT_REC_TYPE == BT_REC_SBCRI)
 	IN	A,($68 + 6)		; UART_MSR MODEM
+	BIT	6,A			; STATUS REGISTER
+	LD	A,0			; BIT 6
+	JR	Z,SAVE_REC_M		; IS RECOVERY MODE
+	LD	A,1
+SAVE_REC_M:
+	LD	(HB_BOOT_REC),A		; SAVE FOR LATER
+    #ENDIF
+  #ENDIF
+  #IF ((PLATFORM == PLT_DUO)
+    #IF (BT_REC_TYPE == BT_REC_DUORI)
+	IN	A,($78 + 6)		; UART_MSR MODEM
 	BIT	6,A			; STATUS REGISTER
 	LD	A,0			; BIT 6
 	JR	Z,SAVE_REC_M		; IS RECOVERY MODE
@@ -2923,6 +2948,9 @@ NXTMIO:	LD	A,(HL)
 ; DISPLAYED BEFORE INTRODUCING INTERRUPTS.  IF THE SYSTEM CRASHES
 ; AFTER DISPLAYING THE BANNER, INTERRUPT INTEGRITY SHOULD BE SUSPECTED.
 ;
+#IF (BOOT_PRETTY)
+	PRTX(STR_PLT_PRETTY)
+#ENDIF
 	PRTX(STR_BANNER)
 ;
 ; DISPLAY HBIOS MUTEX ENABLED MESSAGE
@@ -3016,6 +3044,21 @@ HB_SPDTST:
 ;--------------------------------------------------------------------------------------------------
 ; ENABLE INTERRUPTS
 ;--------------------------------------------------------------------------------------------------
+;
+#IFDEF TESTING
+;
+INTTEST:
+	; TEST TO SEE IF SOMEBODY ENABLED INTS EARLY!
+	LD	A,I
+	JP	PO,INTTEST_Z		; IF PO, INTS DISABLED AS EXPECTED
+	PRTX(STR_INTWARN)		; WARNING
+	JR	INTTEST_Z		; CONTINUE
+;
+STR_INTWARN	.TEXT	"\r\n\r\nWARNING: INTERRUPTS ENABLED TOO EARLY!!!$"
+;
+INTTEST_Z:
+;
+#ENDIF
 ;
 	HB_EI				; INTERRUPTS SHOULD BE OK NOW
 ;
@@ -3167,6 +3210,12 @@ HB_Z280BUS1:
 #ENDIF
 #IF (MEMMGR == MM_RPH)
 	.TEXT	"RPH$"
+#ENDIF
+;#IF (MEMMGR == MM_MON)			; DEPRECATED
+;	.TEXT	"MON$"
+;#ENDIF
+#IF (MEMMGR == MM_EZ512)
+	.TEXT	"EZ512$"
 #ENDIF
 	CALL	PRTSTRD
 	.TEXT	" MMU$"
@@ -3378,7 +3427,7 @@ IS_REC_M1:
 	CALL	CALLLIST
 ;
 ;--------------------------------------------------------------------------------------------------
-; NV-SWITCH INITITIALISATION
+; NV-SWITCH INITIALISATION
 ; Requires functional RTC NVR
 ;--------------------------------------------------------------------------------------------------
 ;
@@ -3393,7 +3442,7 @@ NVR_INIT:
 	JR	NZ, NVR_INIT_DEF	; failed to correclty read data
 	;
 	CALL	NVSW_CHECKSUM		; checksum calc into A
-	LD	HL,CB_SWITCHCK		; address of HCB value
+	LD	HL,CB_SW_CKSUM		; address of HCB switch checksum value
 	CP	(HL)			; compare Caculated Check, with hcb Check Value
 	JR	Z,NVR_INIT_END		; The same so success
 NVR_INIT_DEF:
@@ -3804,7 +3853,7 @@ INITSYS4:
 ;
 HB_PCINIT_REC:
 ;
-  #IF ((PLATFORM == PLT_SBC) | (PLATFORM == PLT_MBC))
+  #IF ((PLATFORM == PLT_SBC) | (PLATFORM == PLT_MBC) | (PLATFORM == PLT_DUO))
 	.DW	UART_PREINIT
 ;	.DW	CALLDUMMY
   #ENDIF
@@ -3813,7 +3862,7 @@ HB_PCINITRLEN	.EQU	(($ - HB_PCINIT_REC) / 2)
 ;
 HB_INIT_REC:
 ;
-  #IF ((PLATFORM == PLT_SBC) | (PLATFORM == PLT_MBC))
+  #IF ((PLATFORM == PLT_SBC) | (PLATFORM == PLT_MBC) | (PLATFORM == PLT_DUO))
 	.DW	UART_INIT
 	.DW	MD_INIT
 	.DW	PPIDE_INIT
@@ -3855,6 +3904,15 @@ HB_PCINITTBL:
 #ENDIF
 #IF (UFENABLE)
 	.DW	UF_PREINIT
+#ENDIF
+#IF (CVDUENABLE)
+	.DW	CVDU_PREINIT
+#ENDIF
+#IF (VGAENABLE)
+	.DW	VGA_PREINIT
+#ENDIF
+#IF (GDCENABLE)
+	.DW	GDC_PREINIT
 #ENDIF
 #IF (TMSENABLE)
 	.DW	TMS_PREINIT
@@ -5297,7 +5355,6 @@ SYS_RESWARM:
 ; RESTART SYSTEM AS THOUGH POWER HAD JUST BEEN TURNED ON
 ;
 SYS_RESCOLD:
-;
 #IFDEF APPBOOT
 	JP	HB_RESTART
 #ELSE
@@ -5388,8 +5445,8 @@ SYS_RESUSER2:
 ; GET THE CURRENT HBIOS VERSION
 ;   ON INPUT, C=0
 ;   RETURNS VERSION IN DE AS BCD
-;     D: MAJOR VERION IN TOP 4 BITS, MINOR VERSION IN LOW 4 BITS
-;     E: UPDATE VERION IN TOP 4 BITS, PATCH VERSION IN LOW 4 BITS
+;     D: MAJOR VERSION IN TOP 4 BITS, MINOR VERSION IN LOW 4 BITS
+;     E: UPDATE VERSION IN TOP 4 BITS, PATCH VERSION IN LOW 4 BITS
 ;     L: PLATFORM ID
 ;
 SYS_VER:
@@ -5708,14 +5765,9 @@ SYS_GETFN:
 ;     HL: SWITCH VALUE 8/16 BIT
 ;
 SYS_GETSWITCH:
-;	PUSH	DE
-;	CALL	NVSW_CONFIG		; make sure shadow copy is inited
-;	POP	DE			;
-;	RET	NZ			; Configuration Failed, thus cant continue
-;
 	LD	A,D
 	CP	$FF			; test if want to just get NVRAM status
-	JP	Z,NVSW_STATUS		; Check the Status - Call and Return
+	JR	Z,SYS_GETSWITCH3	; Check the Status - Call and Return
 ;
 	CALL	SWITCH_RES		; D SWITCH NUMBER -> OUT HL address, E FLAGS
 	RET	NZ			; IF NZ FLAG SET THEN ISSUE
@@ -5733,6 +5785,20 @@ SYS_GETSWITCH2:
 	LD	L,C
 	XOR	A			; signal success
 	RET
+;
+; Return Status
+;  A=0   if NVRAM does not exist.     with NZ flag set
+;  A=1   if NVRAM exists, not inited. with NZ flag set
+;  A='W' if NVRAM is fully inited.    with  Z flag set
+;
+; Note the NZ flag can be used to detect and return an error condition
+; where the NVRAM is not fully initialised
+;
+SYS_GETSWITCH3:
+	LD	A,(CB_SWITCHES)		; the status byte
+	CP	'W'			; set NZ based on A = W
+	RET
+;
 #IF ((CPUFAM == CPU_EZ80) & (EZ80TIMER == EZ80TMR_FIRM))
 ; IMPLEMENTED IN EZ80DRV.ASM
 ;
@@ -5985,12 +6051,16 @@ SYS_SET:
 ;     HL: SWITCH VALUE 8/16 BIT
 ;
 SYS_SETSWITCH:
-	CALL	NVSW_STATUS		; Check the status of NV RAM
-	RET	NZ			; IF NZ then we cant continue, return NZ at this point
+	LD	A,(CB_SWITCHES)		; Check the basic status of NV RAM
+	CP	0			; no nv ram is present. ( if = 0 )
+	JR	Z,SWITCH_RES1		; then we cant continue, return NZ at this point
 ;
 	LD	A,D			; switch # argument
 	CP	$FF			; test if want to reset NVRAM
 	JP	Z,NVSW_RESET		; then perform reset function. CALL AND RETURN
+;
+	CALL	SYS_GETSWITCH3		; Check the Full status of NV RAM
+	RET	NZ			; is not fully initialised, so return
 ;
 	LD	B,H			; move value to write into BC
 	LD	C,L
@@ -7582,20 +7652,6 @@ Z2DMAADR2:
 ; ROUTINES FOR NON VOLITILE (NVRAM) SWITCHES
 ;--------------------------------------------------------------------------------------------------
 ;
-; Return Status
-;  A=0   if no NVRAM exists. with NZ flag set
-;  A=1   if NVRAM is present. with Z flag set
-;  A='W' if NVRAM is fullly inited. with Z flag set
-; Note the NZ flag can be used to detect and return an error condition
-;
-NVSW_STATUS:
-	LD	A,(CB_SWITCHES)		; the status byte
-	LD	B,A			; save it
-	AND	1			; applies to 'W' and $01 status, -> 1
-	CP	1			; set NZ based on A = 1
-	LD	A,B			; return the
-	RET
-;
 ; RESET CONTENTS OF NVRAM, STORING INTO
 ; RETURN NONZERO IF WRITTEN - ZERO IF NOT WRITTEN
 ;
@@ -7609,7 +7665,7 @@ NVSW_RESET:
 ;
 NVSW_UPDATE:
 	CALL	NVSW_CHECKSUM		; CALC checksum into A
-	LD	(CB_SWITCHCK),A		; store checksum in hcb
+	LD	(CB_SW_CKSUM),A		; store checksum in hcb
 	CALL	NVSW_WRITE		; write the bytes to nvr
 	RET	Z			; Successful write, return
 	; write failed for some reason ???
@@ -7693,8 +7749,8 @@ NVSW_WRITE2:
 ;
 NVSW_DEFAULT:
 	.DB	'W'			; Signature Byte
-	.DB	'H'			; Default Boot - Rom Application [H]elp
-	.DB	DBOOT_ROM		; Default Boot - ROM Application
+	.DB	'H'			; Auto Boot - Rom Application [H]elp
+	.DB	BOPTS_ROM		; Auto Boot - ROM Application
 	.DB	0			; Auto Boot - NO auto boot
 	; Configure above byte from (BOOT_TIMEOUT != -1)
 ; SIZE OF NVR BYTES
@@ -8677,8 +8733,8 @@ PS_DTSD		.TEXT	"SD Card$"
 PS_DTUSB	.TEXT	"USB Drive$"
 PS_DTROM	.TEXT	"ROM Disk$"
 PS_DTRAM	.TEXT	"RAM Disk$"
+PS_DTFSH	.TEXT	"Flash ROM"
 PS_DTRF		.TEXT	"RAM Floppy$"
-PS_DTFSH	.TEXT	"Flash Drive$"
 PS_DTCD		.TEXT	"CD-ROM$"
 PS_DTCRT	.TEXT	"Cartridge$"
 PS_DTOUSBSCI	.TEXT	"SCSI$"
@@ -9505,6 +9561,10 @@ STR_LOWBAT	.DB	"\r\n\r\n+++ LOW BATTERY +++$"
 STR_PANIC	.TEXT	"\r\n>>> PANIC: $"
 STR_SYSCHK	.TEXT	"\r\n>>> SYSCHK: $"
 STR_CONTINUE	.TEXT	"\r\nContinue (Y/N)? $"
+;
+#IF (BOOT_PRETTY)
+#INCLUDE "plt_pretty.inc"
+#ENDIF
 ;
 HB_CURSEC	.DB	0		; CURRENT SECOND (TEMP)
 ;
