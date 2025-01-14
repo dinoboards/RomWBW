@@ -114,13 +114,15 @@ Source/ZPM3/genbnk.dat
 Source/ZSDOS/zsdos.err
 
 # Lets explicit list all generate untracked binary files
+Binary/Apps/bbcbasic.txt
+Binary/Apps/copysl.doc
+Binary/Apps/fdu.doc
 Binary/Apps/Tunes/bgm.vgm
 Binary/Apps/Tunes/ending.vgm
 Binary/Apps/Tunes/inchina.vgm
 Binary/Apps/Tunes/shirakaw.vgm
 Binary/Apps/Tunes/startdem.vgm
 Binary/Apps/Tunes/wonder01.vgm
-Binary/Apps/fdu.doc
 Binary/Apps/zmconfig.ovr
 Binary/Apps/zminit.ovr
 Binary/Apps/zmp.doc
@@ -143,6 +145,7 @@ Binary/CPNET/cpn12ser.lbr
 Binary/CPNET/cpn3duo.lbr
 Binary/CPNET/cpn3mt.lbr
 Binary/CPNET/cpn3ser.lbr
+Binary/hd1k_prefix.dat
 Binary/RCEZ80_std.upd
 Binary/RCZ80_std.upd
 Binary/ZPM3/bnkbdos3.spr
@@ -150,7 +153,6 @@ Binary/ZPM3/bnkbios3.spr
 Binary/ZPM3/gencpm.dat
 Binary/ZPM3/resbdos3.spr
 Binary/ZPM3/zinstal.zpm
-Binary/hd1k_prefix.dat
 Source/BPBIOS/def-ww.lib
 Source/CPNET/cpn12duo.lbr
 Source/CPNET/cpn12mt.lbr
@@ -173,10 +175,10 @@ Source/Fonts/fontcgau.asm
 Source/Fonts/fontvgarcc.asm
 Source/Fonts/fontvgarcc.bin
 Source/Fonts/fontvgarcu.asm
-Source/HBIOS/RCEZ80_std.upd
-Source/HBIOS/RCZ80_std.upd
 Source/HBIOS/build_env.cmd
 Source/HBIOS/hbios_env.sh
+Source/HBIOS/RCEZ80_std.upd
+Source/HBIOS/RCZ80_std.upd
 Source/Images/blank144
 Source/Images/blankhd1k
 Source/Images/blankhd512
@@ -249,7 +251,6 @@ Source/ZPM3/setz3.com
 Tools/unix/OpenSpin/build/
 Tools/unix/zxcc/config.h
 Tools/unix/zxcc/zxcc
-Binary/Apps/bbcbasic.txt
 
 Source/Images/hd1k_msxroms1.img
 Source/Images/hd1k_msxroms1.img
