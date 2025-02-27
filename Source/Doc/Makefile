@@ -9,7 +9,7 @@
 # On Ubuntu Linux:
 # apt install gpp pandoc texlive texlive-luatex texlive-fonts-extra
 #
-OBJECTS = ReadMe.gfm ReadMe.txt UserGuide.pdf SystemGuide.pdf Applications.pdf Catalog.pdf Errata.pdf
+OBJECTS = Introduction.gfm Introduction.txt Introduction.pdf UserGuide.pdf SystemGuide.pdf Applications.pdf Catalog.pdf Hardware.pdf
 # DEST = ../../Doc
 TOOLS = ../../Tools
 OTHERS = *.tmp
@@ -31,16 +31,17 @@ all :: deploy
 	pandoc $< -f markdown -t dokuwiki -s -o $@ --default-image-extension=pdf
 
 %.gfm : %.tmp
-	pandoc $< -f markdown -t gfm -s -o $@ --default-image-extension=pdf
+	pandoc $< -f markdown -t gfm-yaml_metadata_block -s -o $@ --default-image-extension=pdf
 
 %.txt : %.tmp
 	pandoc $< -f markdown -t plain -s -o $@ --default-image-extension=pdf
 
 deploy :
-	cp ReadMe.gfm            "../../ReadMe.md"
-	cp ReadMe.txt            "../../ReadMe.txt"
+	cp Introduction.gfm      "../../ReadMe.md"
+	cp Introduction.txt      "../../ReadMe.txt"
+	cp Introduction.pdf      "../../Doc/RomWBW Introduction.pdf"
 	cp UserGuide.pdf         "../../Doc/RomWBW User Guide.pdf"
 	cp SystemGuide.pdf       "../../Doc/RomWBW System Guide.pdf"
 	cp Applications.pdf      "../../Doc/RomWBW Applications.pdf"
 	cp Catalog.pdf           "../../Doc/RomWBW Disk Catalog.pdf"
-	cp Errata.pdf            "../../Doc/RomWBW Errata.pdf"
+	cp Hardware.pdf          "../../Doc/RomWBW Hardware.pdf"

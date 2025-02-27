@@ -381,11 +381,10 @@ The following files appear in User Area 0
 | `GET.COM`     | DRI CPM+ Temporarily get console input form a disk file                |
 | `HELP.COM`    | DRI CPM+ Display information on how to use commands                    |
 | `HELP.HLP`    | DRI CPM+ Databse of help information for HELP.COM                      |
-| `HEXCOM.COM`  | DRI CPM+ Create a COM file from a hex file output by MAC               |
+| `HEXCOM.COM`  | DRI CPM+ Create a COM file from a hex file (replaces LOAD.COM)         |
 | `INITDIR.COM` | DRI CPM+ Initializes a disk to allow time and date stamping            |
 | `LIB.COM`     | DRI object file library manager                                        |
 | `LINK.COM`    | DRI object file linker                                                 |
-| `LOAD.COM`    | DRI loader for Intel hex files                                         |
 | `MAC.COM`     | DRI 8080 macro assembler                                               |
 | `PATCH.COM`   | DRI CPM+ Display or install patch to the CPM+ system or command files  |
 | `PIP.COM`     | DRI CPM+ Periperal Interchange Program                                 |
@@ -671,6 +670,8 @@ The following are found in
 | CPN3MT.LBR      | CP/NET 3            | CP/M 3          | RCBus w/ MT011          |
 | CPN12DUO.LBR    | CP/NET 1.2          | CP/M 2.2        | Duodyne w/ Disk I/O     |
 | CPN3DUO.LBR     | CP/NET 3            | CP/M 3          | Duodyne w/ Disk I/O     |
+| CPN12SER.LBR    | CP/NET 1.2          | CP/M 2.2        | RomWBW Serial Port      |
+| CPN3SER.LBR     | CP/NET 3            | CP/M 3          | RomWBW Serial Port      |
 
 ## General Purpose Applications
 
