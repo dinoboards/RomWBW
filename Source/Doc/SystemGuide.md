@@ -464,8 +464,10 @@ of a system image before programming it to the ROM; or 2) easily switch
 between system images on the fly.
 
 During the RomWBW build process, one of the output files produced is an
-actual CP/M application (an executable .COM program file). Once you have
-a running CP/M (or compatible) system, you can upload/copy this
+actual CP/M application (an executable .COM program file).  Like the
+normal .ROM files, this file is placed in the Binary directory with the
+same name as the ROM file, but with the file extension of .ROM. Once
+you have a running CP/M (or compatible) system, you can upload/copy this
 application file to the filesystem. By executing this file, you will
 initiate an Application Boot using the system image contained in the
 application file itself.
@@ -638,7 +640,7 @@ CRT character device, the data is actually passed to a built-in terminal
 emulator which, in turn, utilizes a set of VDA (Video Display Adapter)
 functions (such as cursor positioning, scrolling, etc.).
 
-Figure 7.1 depicts the relationship between these components
+Figure 9.1 depicts the relationship between these components
 of HBIOS video processing:
 
 ![Character / Emulation / Video Services](Graphics/CharacterEmulationVideoServices){ width=100% }
@@ -766,10 +768,11 @@ below enumerates these values.
 | CIODEV_DUART    | 0x09   | SCC2681 Family Dual UART                 | duart.asm    |
 | CIODEV_Z2U      | 0x0A   | Zilog Z280 Built-in Serial Ports         | z2u.asm      |
 | CIODEV_LPT      | 0x0B   | Parallel I/O Controller                  | lpt.asm      |
-| CIODEV_ESPCON   | 0x0B   | ESP32 VGA Console                        | esp.asm      |
-| CIODEV_ESPSER   | 0x0B   | ESP32 Serial Port                        | esp.asm      |
-| CIODEV_SCON     | 0x0B   | S100 Console                             | scon.asm     |
-| CIODEV_EZ80UART | 0x11   | eZ80 Built-in UART0 Interface            | ez80uart.asm | 
+| CIODEV_ESPCON   | 0x0C   | ESP32 VGA Console                        | esp.asm      |
+| CIODEV_ESPSER   | 0x0D   | ESP32 Serial Port                        | esp.asm      |
+| CIODEV_SCON     | 0x0E   | S100 Console                             | scon.asm     |
+| CIODEV_SSER     | 0x0F   | Simple Serial Console                    | sser.asm     |
+| CIODEV_EZ80UART | 0x10   | eZ80 Built-in UART0 Interface            | ez80uart.asm | 
 
 Character devices can usually be configured with line characteristics
 such as speed, framing, etc. A word value (16 bit) is used to describe
@@ -906,7 +909,9 @@ Returns the current Line Characteristics (DE) of the specified Character
 Returns device information for the specified Character Unit (C).  The 
 status (A) is a standard HBIOS result code.
 
-Device Attribute (C) values are: 0 = RS/232, 1 = Terminal, 2 = Parallel.
+The two high bits of Device Attribute (C) are: 00 = RS/232, 01 = Terminal,
+10 = Parallel.  The remaining bits should be ignored and are used
+internally.
 
 Device Type (D) indicates the specific hardware driver that handles the 
 specified Character Unit.  Values are listed at the start of this 
@@ -3100,13 +3105,11 @@ with the handler prior to uninstalling it.
 | C: 0x00                                | D: Interrupt Mode                      |
 |                                        | E: IVT Size                            |
 
-Return current Interrupt Mode (D) of the system.  Also return the
-number of Interrupt Vector Table (IVT) entries in IVT Size (E).
-interrupt mode in D and size of interrupt vector table in E. For
-IM1, the size of the table is the number of vectors chained together.
-For IM2, the size of the table is the number of slots in the vector
-table.  The Status (A) is a standard 
-HBIOS result code.
+Return current Interrupt Mode (D) of the system.  Also return the number
+of Interrupt Vector Table (IVT) entries in IVT (E). For IM1, the size
+of the table is the number of vectors chained together. For IM2, the
+size of the table is the number of slots in the vector table.  The
+Status (A) is a standard HBIOS result code.
 
 #### SYSINT Subfunction 0x10 -- Get Interrupt (INTGET)
 
