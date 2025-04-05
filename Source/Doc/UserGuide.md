@@ -833,24 +833,63 @@ disk device performs I/O, the LED will light while the disk is active.
 This is only possible for the first 8 disk units.
 
 The second row of the front panel is composed of switches that allow
-you to control a few aspects of the system startup.
+you to control a few aspects of the system startup. The switches are 
+also re-read during warm boot, so confirm the switch settings are your
+desired boot configuration before executing 'REBOOT /W'.
+ 
+The first two switches affect the device used as the initial console.
+ 
+| CRT/Serial | Sec/Pri | Explanation                                                 |
+|------------|---------|-------------------------------------------------------------|
+| CRT        | Pri     | Primary Cathode Ray Tube device (high speed console)        |
+| CRT        | Sec     | Secondary Cathode Ray Tube device (high speed console)      |
+| Serial     | Pri     | Boot Console is Primary Serial Port                         |
+| Serial     | Sec     | Boot Console is Secondary Serial Port                       |
 
-The first two switches affect the device used as the console initially.
-Setting the CRT/Serial switch will cause the system to boot directly 
-to an attached CRT device (if available).  Setting the Pri/Sec switch 
-will cause the system to boot to the secondary Serial or CRT device 
-(depending on the setting of the first switch).
+If not available (default): "Char Unit 0" is used
 
-The final six switches allow you to cause the system to automatically
-boot into a desired function.  The Auto/Menu switch must be set to
-enable this, otherwise the normal ROM Loader prompt will be used.
-If the Disk/ROM switch is not set, then you can use the last 3
-switches to select a ROM app to auto-start.  If the Disk/ROM switch is
-set, then the system will attempt a disk boot based on the following
-switches.  The Floppy/Hard switch can be used to boot to a Floppy or
-Hard Disk.  In either case, the first Floppy or Hard Disk will be used
-for the boot.  If a Hard Disk boot is selected, then the last three
-switches can be used to select any of the first 8 slices.
+The final six switches allow you to select the desired boot device.
+
++-----------+----------+-------------+--------------------------+-------------------------------------------------+
+|           |          |             | ROM/App/Boot Slice       |                                                 |
+| Auto /    | Disk /   | Floppy /    +--------+--------+--------+-------------------------------------------------+
+| Menu      | ROM      | Hard        |   4    |   2    |   1    | Explanation                                     |
++===========+==========+=============+========+========+========+=================================================+
+| Menu      | --       | --          |   --   |   --   |   --   | Boot to RomWBW Menu                             |
++-----------+----------+-------------+--------+--------+--------+-------------------------------------------------+
+| Auto      | Disk     | Floppy      |   #    |   #    |   #    | Boot Selected Floppy Disk Index                 |
++-----------+----------+-------------+--------+--------+--------+-------------------------------------------------+
+| Auto      | Disk     | Hard        |   #    |   #    |   #    | Boot Selected Hard Disk Index                   |
++-----------+----------+-------------+--------+--------+--------+-------------------------------------------------+
+| Auto      | ROM      | --          |   #    |   #    |   #    | Boot selected ROM Index                         |
++-----------+----------+-------------+--------+--------+--------+-------------------------------------------------+
+
+If not available: Boot Loader Command Prompt \
+'--' Ignored \
+'#' bit flag to select any three bits 4,2,1
+
+ROM or Hard Disk - First 8 Drive Images
+
++-------+-----------------+-----------+
+|       | Floppy / Hard \ |           |
+| 4 2 1 | Drive Index     | ROM Index |
++=======+=================+===========+
+| 0 0 0 |  Zero           | Monitor   |
++-------+-----------------+-----------+
+| 0 0 1 |  One            | BASIC     |
++-------+-----------------+-----------+
+| 0 2 0 |  Two            | Forth     |
++-------+-----------------+-----------+
+| 0 2 1 |  Three          | Game      |
++-------+-----------------+-----------+
+| 4 0 0 |  Four           | CP/M      |
++-------+-----------------+-----------+
+| 4 0 1 |  Five           | Z-System  |
++-------+-----------------+-----------+
+| 4 2 0 |  Six            | Net Boot  |
++-------+-----------------+-----------+
+| 4 2 1 |  Seven          | User      |
++-------+-----------------+-----------+
 
 # Disk Management
 
@@ -1293,7 +1332,7 @@ disk drive space to store a sequential series of slices that contain the
 actual CP/M filesystems referred to by drive letters by the operating 
 system.
 
-Two physical layout schemes exist:
+Two hard disk layout schemes exist:
 
 * Modern (hd1k)
 * Legacy (hd512)
@@ -1309,6 +1348,7 @@ recommended for the following reasons:
 * Larger number of directory entries per filesystem
 * Simplifies creation of coresident FAT filesystem
 * Reduces chances of data corruption
+* Each slice occupies exactly 8MB (an exact power of 2) in size
 
 Both the legacy and modern disk layouts continue to be fully supported
 by RomWBW.  There are no plans to deprecate the legacy layout.  
@@ -1830,20 +1870,21 @@ command prompt.
 Keeping in mind that a RomWBW hard disk (including CF/SD/USB devices)
 allows you to have multiple slices (CP/M filesystems), there are a
 couple ways to image hard disk media. The easiest approach is to 
-use the "combo" disk image.  This image is already prepared
+use the Combo Disk Image.  This hard disk image is already prepared
 with 6 slices containing 5 ready-to-run OSes and a slice with
 the WordStar application files.  
 
-Alternatively, you can create your own
-hard disk image with the specific slice contents you choose.
+Alternatively, you can create your own hard disk image with the specific
+slice contents you choose.
 
-### Standard Hard Disk Physical Layout
+### Standard Hard Disk Layout
 
 As previously described in [Hard Disk Layouts], the exact placement of
 slices and optional FAT partition will vary depending on which disk
 layout (hd512 or hd1k) you are using and your partition table entries.
-To simplify the use of hard disk images, RomWBW has adopted standard
-partition table entries for disk image files provided.
+To simplify the use of hard disk images, RomWBW has adopted a standard
+partition layout for disk image files provided.  This standard
+layout is used to produce the Combo Disk Images described below.
 
 These partition sizes and locations were chosen to:
 
@@ -1851,72 +1892,43 @@ These partition sizes and locations were chosen to:
 - Allow for 64 CP/M filesystem slices
 - Allow for a 384KB FAT filesystem
 
-**NOTE:** RomWBW is not limited to these partition table entries.  You 
-can change the size and location of the RomWBW and/or FAT partitions to 
-increase/decrease the number of slices or FAT filesystem size.
+The standard partition table table entries are:
 
 +---------------------------------+-------------------------------+-------------------------------+
-|                                 | **--- Legacy (hd512) ---**    | **--- Modern (hd1k) ---**     |
+|                                 | **--- Modern (hd1k) ---**     | **--- Legacy (hd512) ---**    |
 |                                 +---------------+---------------+---------------+---------------+
 |                                 | Byte(s)       | Sector(s)     | Byte(s)       | Sector(s)     |
 +=================================+==============:+==============:+==============:+==============:+
-| RomWBW (slices) Start           | 0             | 0             | 1,048,576     | 2,048         |
+| RomWBW Partition Start          | 1 MB          | 2,048         | --            | --            |
 +---------------------------------+---------------+---------------+---------------+---------------+
-| RomWBW (slices) Size            | 545,259,520   | 1,064,960     | 536,870,912   | 1,048,576     |
+| RomWBW Partition Size           | 512 MB        | 1,048,576     | --            | --            |
 +---------------------------------+---------------+---------------+---------------+---------------+
-| FAT Filesystem Start            | 545,259,520   | 1,064,960     | 537,919,488   | 1,050,624     |
+| FAT Filesystem Start            | 513 MB        | 1,050,624     | 520 MB        | 1,064,960     |
 +---------------------------------+---------------+---------------+---------------+---------------+
-| FAT Filesystem Size             | 402,653,184   | 786,432       | 402,653,184   | 786,432       |
+| FAT Filesystem Size             | 384 MB        | 786,432       | 384 MB        | 786,432       |
 +---------------------------------+---------------+---------------+---------------+---------------+
-| \<end\>                         | 947,912,704   | 1,851,392     | 940,572,672   | 1,837,056     |
-+---------------------------------+---------------+---------------+---------------+---------------+
-
-The above partition table entries will result in the following locations and sizes of
-filesystems on the RomWBW disk images.
-
-
-+---------------------------------+-------------------------------+-------------------------------+
-|                                 | **--- Legacy (hd512) ---**    | **--- Modern (hd1k) ---**     |
-|                                 +---------------+---------------+---------------+---------------+
-|                                 | Byte(s)       | Sector(s)     | Byte(s)       | Sector(s)     |
-+=================================+==============:+==============:+==============:+==============:+
-| Prefix Start                    | --            | --            | 0             | 0             |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Prefix Size                     | --            | --            | 1,048,576     | 2,048         |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice Size                      | 8,519,680     | 16,640        | 8,388,608     | 16,384        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 0 Start                   | 0             | 0             | 1,048,576     | 2,048         |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 1 Start                   | 8,519,680     | 16,640        | 9,437,184     | 18,432        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 2 Start                   | 17,039,360    | 33,280        | 17,825,792    | 34,816        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 3 Start                   | 25,559,040    | 49,920        | 26,214,400    | 51,200        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 4 Start                   | 34,078,720    | 66,560        | 34,603,008    | 67,584        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 5 Start                   | 42,598,400    | 83,200        | 42,991,616    | 83,968        |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 6 Start                   | 51,118,080    | 99,840        | 51,380,224    | 100,352       |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 7 Start                   | 59,637,760    | 116,480       | 59,768,832    | 116,736       |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| Slice 63 Start                  | 536,739,840   | 1,048,320     | 529,530,880   | 1,034,240     |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| FAT Filesystem Start            | 545,259,520   | 1,064,960     | 537,919,488   | 1,050,624     |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| FAT Filesystem Size             | 402,653,184   | 786,432       | 402,653,184   | 786,432       |
-+---------------------------------+---------------+---------------+---------------+---------------+
-| \<end\>                         | 947,912,704   | 1,851,392     | 940,572,672   | 1,837,056     |
+| \<end\>                         | 897 MB        | 1,851,392     | 904 MB        | 1,837,056     |
 +---------------------------------+---------------+---------------+---------------+---------------+
 
-#### Combo Hard Disk Image
+**NOTE:** RomWBW is not limited to these partition table entries.  You
+can change the size and location of the RomWBW and/or FAT partitions to
+increase/decrease the number of slices or FAT filesystem size.  Doing
+so would require using `FDISK80` to define your own custom disk layout
+and initializing your filesystems manually.
 
-The combo disk image is essentially just a single image that has several
-of the individual filesystem images (slices) already concatenated 
-together. The combo disk image contains the following 6 slices in the 
-positions indicated:
+The $doc_sys$ has more information on the standard disk layouts as
+implemented in the Combo Disk Images.  Additionally, there is a document
+called "Hard Disk Anatomy.pdf" in the Doc directory of the RomWBW
+distribution with detailed information on the standard disk
+layouts.
+
+### Combo Hard Disk Image
+
+The Combo Disk Image is essentially just a single disk image that has
+several of the individual filesystem images (slices) already
+concatenated together using the standard disk layout described above.
+The Combo Disk Image includes the partition table of the standard disk
+layout and the following 6 slices in the positions indicated:
 
 | **Slice**  | **Description**                         |
 |------------|-----------------------------------------|
@@ -1928,68 +1940,67 @@ positions indicated:
 | Slice 5    | WordStar v4 & ZDE Applications          |
 | Slice 6-63 | _blank unformatted_                     |
 
-There are actually 2 primary combo disk images in the 
-distribution.  One for an hd512 disk layout (hd512_combo.img) and one 
+There are actually 2 Combo Disk Images in the
+distribution.  One for an hd512 disk layout (hd512_combo.img) and one
 for an hd1k disk layout (hd1k_combo.img). Simply use the image file that
 corresponds to your desired hard disk layout.  Review the information
 in [Hard Disk Layouts] if you need more information of the disk layout
 options.
 
-> **Note**: Apart from the hd512 and hd1k combo disk images (mentioned above)
-> there are actaully a number of other `hd1k_*_combo.img` files. These 
-> additional combo files are platform (generally romless) specific, 
+> **Note**: Apart from the hd512 and hd1k Combo Disk Images (mentioned above)
+> there are actually a number of other `hd1k_*_combo.img` files. These
+> additional combo files are platform (generally romless) specific,
 > and should be ignored unless you are on one of these platforms.
 > If you are on one of these platforms you must use the correct combo file
 
-The combo disk image actaully only contains the initial partition table, 
-and the first 6 slices (Slice 0 to 5), this is approximately 49MB in size. 
-While the partition table reserves space to store 64 CP/M filesystem 
-slices as well as a single 384MB FAT filesystem, these area remain
-empty, and must be manuall initialized manually.
+The Combo Disk Image actually only contains the initial partition table,
+and the first 6 slices (Slice 0 to 5), this is approximately 49MB in
+size. While the partition table reserves space to store 64 CP/M
+filesystem slices as well as a single 384MB FAT filesystem, these areas
+remain empty, and must be initialized manually using `CLRDIR` for CP/M
+filesystems and `FAT FORMAT` for the FAT filesystem.
 
-#### Combo Image Capacity
+#### Combo Disk Image Capacity
 
-The combo disk image layout was designed to fit well on a 1GB hard disk.
-The 64 CP/M slices (approximately 512MB) and 384MB FAT filesystem all 
-fit well within a 1GB hard disk.  This size choice was a bit arbitrary, 
-but based on the idea that 1GB CF/SD/USB Media is easy and cheap to 
-acquire.  
+The standard hard disk layout used by the Combo Disk Image was designed
+to fit well on a 1GB hard disk. The 64 CP/M slices (approximately 512MB)
+and 384MB FAT filesystem all fit well within a 1GB hard disk.  This
+size choice was a bit arbitrary, but based on the idea that 1GB
+CF/SD/USB Media is easy and cheap to acquire.
 
-It is fine if your hard disk is smaller than 1GB.  It just 
-means that it will not be possible to use the pre-allocated FAT 
-filesystem partition and any CP/M filesystem slices that don't fit. 
-The true number of CP/M filesystem slices that
-will fit on your specific physical hard disk can be calculated as
-described in [Hard Disk Capacity].
+It is fine if your hard disk is smaller than 1GB.  It just means that it
+will not be possible to use the pre-allocated FAT filesystem partition
+and any CP/M filesystem slices that don't fit. The true number of CP/M
+filesystem slices that will fit on your specific physical hard disk can
+be calculated as described in [Hard Disk Capacity].
 
-If you attempt to access a slice past the end of the 
-physical hard disk you will get "no disk" errors.
-You should calculate the maximum number of slices your hard disk
-will support and do not exceed this number.
+If you attempt to access a slice past the end of the physical hard disk
+you will get "no disk" errors. You should calculate the maximum number
+of slices your hard disk will support and do not exceed this number.
 
-#### Combo Image Advice
+#### Combo Disk Image Advice
 
-A great way to maintain your own data on a hard disk is to put this
-data in slices beyond the first 6.  By doing so, you can always
-"re-image" your drive media with the combo image without overlaying the data
+A great way to maintain your own data on a hard disk is to put your data
+in slices beyond the first 6.  By doing so, you can always "re-image"
+your drive media with the Combo Disk Image without overlaying the data
 stored in the slices beyond the first 6.  Just be very careful to use
 the same combo image layout (hd512 or hd1k) as you used originally.
 
 ### Custom Hard Disk Image
 
-For hard disks, each .img file represents a single slice (CP/M 
-filesystem).  Since a hard disk can contain many slices, you can just 
+For hard disks, each .img file represents a single slice (CP/M
+filesystem).  Since a hard disk can contain many slices, you can just
 concatenate the slices (.img files) together to create your desired hard
-disk image.  
+disk image.
 
 If you look in the Binary directory of the distribution, you will see
-that there are more disk (slice) images than the 6 that are included
-in the "combo" disk images.  These images are identified by looking
-for the files that start with hd1k_ or hd512_.
+that there are more disk (slice) images than the 6 that are included in
+the Combo Disk Images.  These supplemental disk images are identified by
+looking for the files that start with hd1k_ or hd512_.
 
 #### Adding Slices to Combo Image
 
-You can add slices to the combo disk images simply by tacking
+You can add slices to the Combo Disk Images simply by tacking
 slices onto the end.  For example, if you want to add a slice
 containing the MSX ROMs to the end of the combo image, you could
 use one of the following command lines depending on your operating
@@ -2052,7 +2063,7 @@ please refer to the ReadMe.txt file in the Source/Images directory.
 
 ### Writing Hard Disk Images
 
-Once you have chosen a combo hard disk image file or prepared your own 
+Once you have chosen a Combo Hard Disk Image file or prepared your own 
 custom hard disk image file, it will need to be written to the media 
 using your modern computer.  When using this method, 
 the disk will be partitioned and setup with 1 or more slices containing 
@@ -2857,7 +2868,7 @@ is analogous to the CP/M 2.2 `STAT` command.  Do **not** use the CP/M
   Source/Images/d_qpm/u0 directory.
 
 - The QPM disk image is not included as one of the slices on the
-  RomWBW combo disk image.  If you want to include QPM, you can do
+  RomWBW Combo Disk Image.  If you want to include QPM, you can do
   so by following the directions in Source/Images/Readme.txt.
 
 ## UCSD p-System
