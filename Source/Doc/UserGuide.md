@@ -67,7 +67,7 @@ The Binary directory of the distribution contains the pre-built ROM images.
 Refer to $doc_hardware$ to identify the correct ROM image for your system.
 
 A complete list of the currently supported platforms is found in
-$doc_hardware$ . You must burn the correct ROM image that matches your hardware
+$doc_hardware$. You must burn the correct ROM image that matches your hardware
 
 Once you have a running RomWBW system, you can generally update your ROM
 to a newer version in-situ with the included ROM Flashing tool (Will 
@@ -83,8 +83,8 @@ be able to boot and check out your system with just the ROM.
 Connect a serial terminal or computer with terminal emulation software 
 to the primary serial port of your CPU board. You may need to refer to 
 your hardware provider's documentation for details. A null-modem 
-connection may be required. Set the baud rate as indicated in the table 
-above. Set the line characteristics to 8 data bits, 1 stop bit, no 
+connection may be required. Set the baud rate as indicated in $doc_hardware$.
+Set the line characteristics to 8 data bits, 1 stop bit, no 
 parity, and no flow control. If possible, select ANSI or VT-100 terminal
 emulation.  Hardware flow control is not required for terminal
 operation, but may be necessary for [Serial Port Transfers].
@@ -2795,6 +2795,39 @@ The CP/M 3 `DEVICE` command is used to manipulate the device mappings.
   which is confusing, but this is as intended by the ZPM3 distribution.
   I believe it was done this way to make it easier for users to
   transition from CP/M 3 to ZPM3.
+
+- The command line editing key bindings were slightly modified by
+  Jon Saxton when he applied a few ZPM3 fixes.  This is explained
+  in the file zpm3fix.txt in the distribution folder Source/ZPM3.
+  The current key bindings are from the "New" column below.
+
+| **Old** | **New** | **Function**                              |
+|---------|---------|-------------------------------------------|
+| ^A	  | ^A	    | one word left                             |
+| ^B	  | ^B	    | to beginning/end of line                  |
+| ^C	  | ^C	    | reboot if at start of line                |
+| ^D	  | ^D	    | right one char                            |
+| ^E	  | ^E	    | get previous line                         |
+| ^F	  | ^F	    | right one word                            |
+| ^G	  | ^G	    | delete char at cursor                     |
+| ^H	  | ^H	    | destructive backspace                     |
+| ^I	  | ^I	    | (TAB) ignored here                        |
+| ^J	  | ^J	    | (LF) exit editor                          |
+| ^K	  | ^K	    | delete all to the right                   |
+| ^L	  | ^L	    | ignored                                   |
+| ^M	  | ^M	    | (CR) exit editor                          |
+| ^N	  | ^N	    | ignored                                   |
+| ^O	  | ^O	    | ignored                                   |
+| ^P	  | ^P	    | toggle printer echoing                    |
+| ^Q	  | ^Q	    | toggle autoprompt (if enabled)            |
+| ^R	  | ^R	    | ignored                                   |
+| ^S	  | ^S	    | left one char                             |
+| ^T	  | ^T	    | delete word at cursor                     |
+| ^U	  | ^U	    | add line to history                       |
+| ^V	  | ^V	    | clear line, delete from history           |
+| ^W	  | ^X	    | get next line from history                |
+| ^X	  | ^W	    | delete all to the left                    |
+| ^Y	  | ^Y	    | clear line                                |
 
 ## QP/M
 
