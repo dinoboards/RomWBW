@@ -1148,6 +1148,13 @@ contain all sectors requested.  Disk data transfers will be faster if
 the buffer resides in the top 32K of memory because it avoids a
 double buffer copy.
 
+Also for buffers in the top 32K of memory the Bank ID is not
+strictly required as this memory is alway mapped to the common bank.
+For buffers in the bottom 32KB ram, the Bank ID is used to identify
+the bank to use for the buffer. If you do not wih to use banked memory
+you will need to provide the current Bank ID, which can be obtained
+using [Function 0xF3 -- System Get Bank (SYSGETBNK)] 
+
 ### Function 0x14 -- Disk Write (DIOWRITE)
 
 | **Entry Parameters**                   | **Returned Values**                    |
@@ -2055,12 +2062,16 @@ standard HBIOS result code.
 |                                        | E: Keycode                             |
 
 Read the next key data from keyboard of the specified Video Unit (C). If
-a keyboard buffer is used, return the next key code in the buffer. If 
+a keyboard buffer is used, return the next Keycode in the buffer. If 
 no key data is available, this function will wait indefinitely for a 
 keypress.  The Status (A) is a standard HBIOS result code.
 
 The Scancode (C) value is the raw scancode from the keyboard for the 
-keypress. Scancodes are from the PS/2 scancode set 2 standard.
+keypress. Scancodes are optional and may not be implemented by the
+driver.  The Scancode values are driver dependent.  In the case of a
+PS/2 keyboard driver, they should be the PS/2 scancode.  Other keyboard
+drivers may return values appropriate for their specific keyboard.  If
+the driver does not implement this, it should return 0 in C.
 
 The Keystate (D) is a bitmap representing the value of all modifier keys
 and shift states as they existed at the time of the keystroke. The 
@@ -2076,6 +2087,9 @@ bitmap is defined as:
 | 2       | Alt key was held down            |
 | 1       | Control key was held down        |
 | 0       | Shift key was held down          |
+
+Not all of these bits may be relevant for all keyboards.  Any bit that
+is not relevant should be returned as 0.
 
 The Keycode (E) is generally returned as appropriate ASCII values, if 
 possible. Special keys, like function keys and arrows, are returned as 
@@ -2484,26 +2498,34 @@ version 3.1.0, build 2.
 
 The hardware Platform (L) is identified as follows:
 
-| **Name**      | **Id** | **Platform **                           |
+| **Name**      | **Id** | **Platform **                                          |
 |---------------|-------:|-----------------------------------------|
-| PLT_SBC       |1       | ECB Z80 SBC                             |
-| PLT_ZETA      |2       | ZETA Z80 SBC                            |
-| PLT_ZETA2     |3       | ZETA Z80 V2 SBC                         |
-| PLT_N8        |4       | N8 (HOME COMPUTER) Z180 SBC             |
-| PLT_MK4       |5       | MARK IV                                 |
-| PLT_UNA       |6       | UNA BIOS                                |
-| PLT_RCZ80     |7       | RCBUS W/ Z80                            |
-| PLT_RCZ180    |8       | RCBUS W/ Z180                           |
-| PLT_EZZ80     |9       | EASY/TINY Z80                           |
-| PLT_SCZ180    |10      | RCBUS SC126, SC130, SC131, SC140        |
-| PLT_DYNO      |11      | DYNO MICRO-ATX MOTHERBOARD              |
-| PLT_RCZ280    |12      | RCBUS W/ Z280                           |
-| PLT_MBC       |13      | NHYODYNE MULTI-BOARD COMPUTER           |
-| PLT_RPH       |14      | RHYOPHYRE GRAPHICS SBC                  |
-| PLT_Z80RETRO  |15      | Z80 RETRO COMPUTER                      |
-| PLT_S100      |16      | S100 COMPUTERS Z180                     |
-| PLT_DUO       |17      | DUODYNE Z80 SYSTEM                      |
-| PLT_RCEZ80    |24      | RCBUS W/ eZ80                           |
+| PLT_SBC       |      1 | ECB Z80 SBC                             |
+| PLT_ZETA      |      2 | ZETA Z80 SBC                            |
+| PLT_ZETA2     |      3 | ZETA Z80 V2 SBC                         |
+| PLT_N8        |      4 | N8 (HOME COMPUTER) Z180 SBC             |
+| PLT_MK4       |      5 | MARK IV                                 |
+| PLT_UNA       |      6 | UNA BIOS                                |
+| PLT_RCZ80     |      7 | RCBUS W/ Z80                            |
+| PLT_RCZ180    |      8 | RCBUS W/ Z180                           |
+| PLT_EZZ80     |      9 | EASY/TINY Z80                           |
+| PLT_SCZ180    |     10 | SMALL COMPUTER CENTRAL Z180             |
+| PLT_DYNO      |     11 | DYNO MICRO-ATX MOTHERBOARD              |
+| PLT_RCZ280    |     12 | RCBUS W/ Z280                           |
+| PLT_MBC       |     13 | NHYODYNE MULTI-BOARD COMPUTER           |
+| PLT_RPH       |     14 | RHYOPHYRE GRAPHICS SBC                  |
+| PLT_Z80RETRO  |     15 | Z80 RETRO COMPUTER                      |
+| PLT_S100      |     16 | S100 COMPUTERS Z180                     |
+| PLT_DUO       |     17 | DUODYNE Z80 SYSTEM                      |
+| PLT_HEATH     |     18 | HEATHKIT H8 Z80 SYSTEM                  |
+| PLT_EPITX     |     19 | Z180 MINI-ITX                           |
+| PLT_MON       |     20 | MONSPUTER (DEPRECATED)                  |
+| PLT_GMZ180    |     21 | GENESIS Z180 SYSTEM                     |
+| PLT_NABU      |     22 | NABU PC W/ ROMWBW OPTION BOARD          |
+| PLT_FZ80      |     23 | S100 FPGA Z80                           |
+| PLT_RCEZ80    |     24 | RCBUS W/ eZ80                           |
+
+For more information on these platforms see $doc_hardware$
 
 ### Function 0xF2 -- System Set Bank (SYSSETBNK)
 
