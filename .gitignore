@@ -47,12 +47,12 @@ Source/HBIOS/Blank512KB.dat
 Source/HBIOS/build.inc
 Source/Images/blank144
 Source/Images/blankhd
-Source/Prop/Spin/ParPortProp.list
-Source/Prop/Spin/PropIO.list
-Source/Prop/Spin/PropIO2.list
 Source/Prop/ParPortProp.list
 Source/Prop/PropIO.list
 Source/Prop/PropIO2.list
+Source/Prop/Spin/ParPortProp.list
+Source/Prop/Spin/PropIO.list
+Source/Prop/Spin/PropIO2.list
 Source/ZPM3/bnkbios3.spr
 Source/ZPM3/gencpm.com
 Source/ZPM3/gencpm.com
@@ -106,12 +106,11 @@ Tools/unix/zx/zx
 !Tools/unix/zx/*
 !Tools/zx/*
 
+Source/ZPM3/genbnk.dat
 Source/ZPM3/gencpm.com
 Source/ZPM3/startzpm.com
 Source/ZPM3/zccp.com
 Source/ZPM3/zpmldr.com
-Source/ZPM3/genbnk.dat
-
 Source/ZSDOS/zsdos.err
 
 # Lets explicit list all generate untracked binary files
@@ -126,7 +125,9 @@ Binary/Apps/Tunes/startdem.vgm
 Binary/Apps/Tunes/wonder01.vgm
 Binary/Apps/zmconfig.ovr
 Binary/Apps/zminit.ovr
+Binary/Apps/zmp.cfg
 Binary/Apps/zmp.doc
+Binary/Apps/zmp.fon
 Binary/Apps/zmp.hlp
 Binary/Apps/zmterm.ovr
 Binary/Apps/zmxfer.ovr
@@ -154,6 +155,8 @@ Binary/ZPM3/bnkbios3.spr
 Binary/ZPM3/gencpm.dat
 Binary/ZPM3/resbdos3.spr
 Binary/ZPM3/zinstal.zpm
+
+Source/Apps/copysl/copysl.com
 Source/BPBIOS/def-ww.lib
 Source/CPNET/cpn12duo.lbr
 Source/CPNET/cpn12mt.lbr
@@ -254,13 +257,13 @@ Tools/unix/OpenSpin/build/
 Tools/unix/zxcc/config.h
 Tools/unix/zxcc/zxcc
 
+Source/Images/fd144_z3plus.img
 Source/Images/hd1k_msxroms1.img
 Source/Images/hd1k_msxroms1.img
 Source/Images/hd1k_msxroms2.img
+Source/Images/hd1k_z3plus.img
 Source/Images/hd512_msxroms1.img
 Source/Images/hd512_msxroms2.img
-Source/Images/fd144_z3plus.img
-Source/Images/hd1k_z3plus.img
 Source/Images/hd512_z3plus.img
 
 Source/Images/*.cat
