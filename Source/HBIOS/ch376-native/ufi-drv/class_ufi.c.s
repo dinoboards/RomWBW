@@ -124,7 +124,7 @@ __ufi_cmd_request_sense:
 	DEFB +$00
 	DEFB +$00
 	DEFB +$00
-__ufi_cmd_read_format_capacitie:
+__ufi_cmd_rd_fmt_caps:
 	DEFB +$23
 	DEFB +$00
 	DEFB +$00
@@ -163,7 +163,7 @@ __ufi_cmd_format:
 	DEFB +$00
 	DEFB +$00
 	DEFB +$00
-__ufi_cmd_send_diagnostic:
+__ufi_cmd_send_diag:
 	DEFB +$1d
 	DEFB +$04
 	DEFB +$00
@@ -299,12 +299,12 @@ _ufi_read_frmt_caps:
 	ld	hl, -24
 	add	hl, sp
 	ld	sp, hl
-;source-doc/ufi-drv/class_ufi.c:65: ufi_cmd_read_format_capacities = _ufi_cmd_read_format_capacities;
+;source-doc/ufi-drv/class_ufi.c:65: ufi_cmd_read_format_capacities = _ufi_cmd_rd_fmt_caps;
 	ld	hl,0
 	add	hl, sp
 	ex	de, hl
 	ld	bc,$000c
-	ld	hl,__ufi_cmd_read_format_capacitie
+	ld	hl,__ufi_cmd_rd_fmt_caps
 	ldir
 ;source-doc/ufi-drv/class_ufi.c:66: result = usb_execute_cbi(storage_device, (uint8_t *)&ufi_cmd_read_format_capacities, false, 12, (uint8_t *)response, NULL);
 	ld	c,(ix+6)
@@ -596,7 +596,7 @@ _ufi_send_diagnostics:
 	add	hl, sp
 	ex	de, hl
 	ld	bc,$000c
-	ld	hl,__ufi_cmd_send_diagnostic
+	ld	hl,__ufi_cmd_send_diag
 	ldir
 ;source-doc/ufi-drv/class_ufi.c:161: ufi_send_diagnostic_command ufi_cmd_send_diagnostic;
 	ld	hl,$0000

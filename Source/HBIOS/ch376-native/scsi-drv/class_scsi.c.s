@@ -30,7 +30,7 @@
 	
 ; .area _INITIALIZED removed by z88dk
 	
-_scsi_command_block_wrapper:
+_scsi_cmd_blk_wrap:
 	DEFS 15
 _next_tag:
 	DEFS 2
@@ -308,14 +308,14 @@ _scsi_test:
 	ld	hl, -27
 	add	hl, sp
 	ld	sp, hl
-;source-doc/scsi-drv/class_scsi.c:55: cbw_scsi.cbw = scsi_command_block_wrapper;
+;source-doc/scsi-drv/class_scsi.c:55: cbw_scsi.cbw = scsi_cmd_blk_wrap;
 	ld	hl,0
 	add	hl, sp
 	ld	e,l
 	ld	d,h
 	push	hl
 	ld	bc,$000f
-	ld	hl,_scsi_command_block_wrapper
+	ld	hl,_scsi_cmd_blk_wrap
 	ldir
 ;source-doc/scsi-drv/class_scsi.c:56: memset(&cbw_scsi.test, 0, sizeof(_scsi_packet_test));
 	ld	hl,17
@@ -370,21 +370,21 @@ _scsi_request_sense:
 	ld	hl, -27
 	add	hl, sp
 	ld	sp, hl
-;source-doc/scsi-drv/class_scsi.c:69: cbw_scsi.cbw           = scsi_command_block_wrapper;
+;source-doc/scsi-drv/class_scsi.c:69: cbw_scsi.cbw           = scsi_cmd_blk_wrap;
 	ld	hl,0
 	add	hl, sp
 	ld	e,l
 	ld	d,h
 	push	hl
 	ld	bc,$000f
-	ld	hl,_scsi_command_block_wrapper
+	ld	hl,_scsi_cmd_blk_wrap
 	ldir
-;source-doc/scsi-drv/class_scsi.c:70: cbw_scsi.request_sense = scsi_packet_request_sense;
+;source-doc/scsi-drv/class_scsi.c:70: cbw_scsi.request_sense = scsi_pckt_req_sense;
 	ld	hl,17
 	add	hl, sp
 	ex	de, hl
 	ld	bc,$000c
-	ld	hl,_scsi_packet_request_sense
+	ld	hl,_scsi_pckt_req_sense
 	ldir
 	pop	bc
 ;source-doc/scsi-drv/class_scsi.c:72: cbw_scsi.cbw.bCBWLUN                = 0;
@@ -418,7 +418,7 @@ _scsi_request_sense:
 	ld	sp,ix
 	pop	ix
 	ret
-_scsi_packet_request_sense:
+_scsi_pckt_req_sense:
 	DEFB +$03
 	DEFB +$00
 	DEFB +$00
@@ -431,7 +431,7 @@ _scsi_packet_request_sense:
 	DEFB +$00
 	DEFB +$00
 	DEFB +$00
-_scsi_command_block_wrapper:
+_scsi_cmd_blk_wrap:
 	DEFB +$55
 	DEFB +$53
 	DEFB +$42

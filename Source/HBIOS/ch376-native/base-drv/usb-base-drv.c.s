@@ -147,8 +147,8 @@ l_usb_init_00160:
 	jr	Z,l_usb_init_00110
 ;source-doc/base-drv/usb-base-drv.c:49: usb_host_bus_reset();
 	call	_usb_host_bus_reset
-;source-doc/base-drv/usb-base-drv.c:51: r = ch_very_short_wait_int_and_get_();
-	call	_ch_very_short_wait_int_and_get
+;source-doc/base-drv/usb-base-drv.c:51: r = ch_very_short_status();
+	call	_ch_very_short_status
 	ld	a, l
 ;source-doc/base-drv/usb-base-drv.c:53: if (r != USB_INT_CONNECT) {
 	sub	$81

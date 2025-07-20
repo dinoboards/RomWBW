@@ -30,7 +30,7 @@
 	
 ; .area _INITIALIZED removed by z88dk
 	
-_scsi_packet_read_capacity:
+_scsi_pkt_read_cap:
 	DEFS 12
 _cbw:
 	DEFS 27
@@ -120,22 +120,22 @@ _usb_scsi_read_capacity:
 ;source-doc/scsi-drv/scsi_driver.c:27: device_config_storage *const dev = (device_config_storage *)get_usb_device_config(dev_index);
 	ld	a,(ix+4)
 	call	_get_usb_device_config
-;source-doc/scsi-drv/scsi_driver.c:30: cbw_scsi.cbw           = scsi_command_block_wrapper;
+;source-doc/scsi-drv/scsi_driver.c:30: cbw_scsi.cbw           = scsi_cmd_blk_wrap;
 	push	de
 	ld	hl,2
 	add	hl, sp
 	ex	de, hl
 	ld	bc,$000f
-	ld	hl,_scsi_command_block_wrapper
+	ld	hl,_scsi_cmd_blk_wrap
 	ldir
 	pop	de
-;source-doc/scsi-drv/scsi_driver.c:31: cbw_scsi.read_capacity = scsi_packet_read_capacity;
+;source-doc/scsi-drv/scsi_driver.c:31: cbw_scsi.read_capacity = scsi_pkt_read_cap;
 	push	de
 	ld	hl,17
 	add	hl, sp
 	ex	de, hl
 	ld	bc,$000c
-	ld	hl,_scsi_packet_read_capacity
+	ld	hl,_scsi_pkt_read_cap
 	ldir
 	pop	de
 ;source-doc/scsi-drv/scsi_driver.c:33: cbw_scsi.cbw.bCBWLUN                = 0;
@@ -195,9 +195,9 @@ l_usb_scsi_read_00113:
 	ld	(hl),$00
 	inc	hl
 	djnz	l_usb_scsi_read_00112
-;source-doc/scsi-drv/scsi_driver.c:64: cbw.cbw = scsi_command_block_wrapper;
+;source-doc/scsi-drv/scsi_driver.c:64: cbw.cbw = scsi_cmd_blk_wrap;
 	ld	bc,$000f
-	ld	hl,_scsi_command_block_wrapper
+	ld	hl,_scsi_cmd_blk_wrap
 	ldir
 ;source-doc/scsi-drv/scsi_driver.c:66: cbw.cbw.bCBWLUN                = 0;
 	ld	hl,_cbw + 13
@@ -326,9 +326,9 @@ l_usb_scsi_write_00113:
 	ld	(hl),$00
 	inc	hl
 	djnz	l_usb_scsi_write_00112
-;source-doc/scsi-drv/scsi_driver.c:89: cbw.cbw = scsi_command_block_wrapper;
+;source-doc/scsi-drv/scsi_driver.c:89: cbw.cbw = scsi_cmd_blk_wrap;
 	ld	bc,$000f
-	ld	hl,_scsi_command_block_wrapper
+	ld	hl,_scsi_cmd_blk_wrap
 	ldir
 ;source-doc/scsi-drv/scsi_driver.c:91: cbw.cbw.bCBWLUN                = 0;
 	ld	hl,_cbw + 13
@@ -430,7 +430,7 @@ l_usb_scsi_write_00102:
 	ld	sp, ix
 	pop	ix
 	ret
-_scsi_packet_read_capacity:
+_scsi_pkt_read_cap:
 	DEFB +$25
 	DEFB +$00
 	DEFB +$00

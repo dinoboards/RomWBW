@@ -540,7 +540,7 @@ _configure_device:
 	and	$f0
 	or	l
 	ld	(bc), a
-;source-doc/base-drv/enumerate.c:119: return usbtrn_set_configuration(dev_cfg->address, dev_cfg->max_packet_size, working->config.desc.bConfigurationvalue);
+;source-doc/base-drv/enumerate.c:119: return usbtrn_set_config(dev_cfg->address, dev_cfg->max_packet_size, working->config.desc.bConfigurationvalue);
 	ld	hl,36
 	add	hl, de
 	ld	b, (hl)
@@ -559,16 +559,16 @@ _configure_device:
 	push	bc
 	push	af
 	inc	sp
-	call	_usbtrn_set_configuration
+	call	_usbtrn_set_config
 ;source-doc/base-drv/enumerate.c:120: }
 	ld	sp,ix
 	pop	ix
 	ret
-;source-doc/base-drv/enumerate.c:122: usb_error op_capture_hub_driver_interface(_working *const working) __sdcccall(1) {
+;source-doc/base-drv/enumerate.c:122: usb_error op_cap_hub_drv_intf(_working *const working) __sdcccall(1) {
 ; ---------------------------------
-; Function op_capture_hub_driver_interface
+; Function op_cap_hub_drv_intf
 ; ---------------------------------
-_op_capture_hub_driver_interfac:
+_op_cap_hub_drv_intf:
 	push	ix
 	ld	ix,0
 	add	ix,sp
@@ -619,13 +619,13 @@ _op_capture_hub_driver_interfac:
 	ld	a, l
 	inc	l
 	dec	l
-	jr	NZ,l_op_capture_hub_driver_interfa
+	jr	NZ,l_op_cap_hub_drv_intf_00103
 ;source-doc/base-drv/enumerate.c:131: RETURN_CHECK(configure_usb_hub(working));
 	ex	de, hl
 	call	_configure_usb_hub
 	ld	a, l
 ;source-doc/base-drv/enumerate.c:132: done:
-l_op_capture_hub_driver_interfa:
+l_op_cap_hub_drv_intf_00103:
 ;source-doc/base-drv/enumerate.c:133: return result;
 ;source-doc/base-drv/enumerate.c:134: }
 	ld	sp, ix
@@ -700,11 +700,11 @@ l_op_cap_drv_intf_00104:
 	jr	Z,l_op_cap_drv_intf_00108
 	sub	$0f
 	jr	NZ,l_op_cap_drv_intf_00111
-;source-doc/base-drv/enumerate.c:148: CHECK(op_capture_hub_driver_interface(working))
+;source-doc/base-drv/enumerate.c:148: CHECK(op_cap_hub_drv_intf(working))
 	ld	l,c
 	ld	h,b
 	push	hl
-	call	_op_capture_hub_driver_interfac
+	call	_op_cap_hub_drv_intf
 	pop	bc
 	or	a
 	jr	Z,l_op_cap_drv_intf_00116

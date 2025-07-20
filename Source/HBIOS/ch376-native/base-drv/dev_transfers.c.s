@@ -156,7 +156,7 @@ _usbdev_blk_out_trnsfer:
 	ld	h, c
 	ld	l,a
 	push	hl
-	call	_usbtrn_clear_endpoint_halt
+	call	_usbtrn_clr_ep_halt
 	pop	af
 	inc	sp
 	pop	de
@@ -243,7 +243,7 @@ _usbdev_bulk_in_transfer:
 	ld	h, c
 	ld	l,a
 	push	hl
-	call	_usbtrn_clear_endpoint_halt
+	call	_usbtrn_clr_ep_halt
 	pop	af
 	inc	sp
 	pop	de
@@ -252,7 +252,7 @@ _usbdev_bulk_in_transfer:
 	res	0, (hl)
 ;source-doc/base-drv/dev_transfers.c:56: endpoint_param *const endpoint = &dev->endpoints[ENDPOINT_BULK_IN];
 	ld	l,$02
-;source-doc/base-drv/dev_transfers.c:61: usbtrn_clear_endpoint_halt(endpoint->number, dev->address, dev->max_packet_size);
+;source-doc/base-drv/dev_transfers.c:61: usbtrn_clr_ep_halt(endpoint->number, dev->address, dev->max_packet_size);
 l_usbdev_bulk_in_transfer_00102:
 ;source-doc/base-drv/dev_transfers.c:62: endpoint->toggle = 0;
 	ld	sp, ix
@@ -343,7 +343,7 @@ _usbdev_dat_in_trnsfer:
 	ld	h, c
 	ld	l,a
 	push	hl
-	call	_usbtrn_clear_endpoint_halt
+	call	_usbtrn_clr_ep_halt
 	pop	af
 	inc	sp
 	pop	de
@@ -352,7 +352,7 @@ _usbdev_dat_in_trnsfer:
 	res	0, (hl)
 ;source-doc/base-drv/dev_transfers.c:77: endpoint_param *const endpoint = &device->endpoints[endpoint_type];
 	ld	l,$02
-;source-doc/base-drv/dev_transfers.c:82: usbtrn_clear_endpoint_halt(endpoint->number, device->address, device->max_packet_size);
+;source-doc/base-drv/dev_transfers.c:82: usbtrn_clr_ep_halt(endpoint->number, device->address, device->max_packet_size);
 l_usbdev_dat_in_trnsfer_00102:
 ;source-doc/base-drv/dev_transfers.c:83: endpoint->toggle = 0;
 	ld	sp, ix
@@ -432,7 +432,7 @@ _usbdev_dat_in_trnsfer_0:
 	ld	h, c
 	ld	l,a
 	push	hl
-	call	_usbtrn_clear_endpoint_halt
+	call	_usbtrn_clr_ep_halt
 	pop	af
 	inc	sp
 	pop	de

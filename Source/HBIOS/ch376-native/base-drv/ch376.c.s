@@ -65,27 +65,27 @@ l_ch_command_00104:
 	out	(c), a
 ;source-doc/base-drv/ch376.c:20: }
 	ret
-;source-doc/base-drv/ch376.c:24: usb_error ch_long_wait_int_and_get_status(void) { return ch_wait_int_and_get_status(5000); }
+;source-doc/base-drv/ch376.c:24: usb_error ch_long_get_status(void) { return ch_wait_and_get_status(5000); }
 ; ---------------------------------
-; Function ch_long_wait_int_and_get_status
+; Function ch_long_get_status
 ; ---------------------------------
-_ch_long_wait_int_and_get_statu:
+_ch_long_get_status:
 	ld	hl,$1388
-	jp	_ch_wait_int_and_get_status
-;source-doc/base-drv/ch376.c:26: usb_error ch_short_wait_int_and_get_statu(void) { return ch_wait_int_and_get_status(100); }
+	jp	_ch_wait_and_get_status
+;source-doc/base-drv/ch376.c:26: usb_error ch_short_get_status(void) { return ch_wait_and_get_status(100); }
 ; ---------------------------------
-; Function ch_short_wait_int_and_get_statu
+; Function ch_short_get_status
 ; ---------------------------------
-_ch_short_wait_int_and_get_stat:
+_ch_short_get_status:
 	ld	hl,$0064
-	jp	_ch_wait_int_and_get_status
-;source-doc/base-drv/ch376.c:28: usb_error ch_very_short_wait_int_and_get_(void) { return ch_wait_int_and_get_status(10); }
+	jp	_ch_wait_and_get_status
+;source-doc/base-drv/ch376.c:28: usb_error ch_very_short_status(void) { return ch_wait_and_get_status(10); }
 ; ---------------------------------
-; Function ch_very_short_wait_int_and_get_
+; Function ch_very_short_status
 ; ---------------------------------
-_ch_very_short_wait_int_and_get:
+_ch_very_short_status:
 	ld	hl,$000a
-	jp	_ch_wait_int_and_get_status
+	jp	_ch_wait_and_get_status
 ;source-doc/base-drv/ch376.c:30: usb_error ch_get_status(void) {
 ; ---------------------------------
 ; Function ch_get_status
@@ -493,8 +493,8 @@ l_ch_data_in_transfer_00107:
 	ld	h,b
 	push	hl
 	call	_ch_issue_token_in
-;source-doc/base-drv/ch376.c:164: result = ch_long_wait_int_and_get_status();
-	call	_ch_long_wait_int_and_get_statu
+;source-doc/base-drv/ch376.c:164: result = ch_long_get_status();
+	call	_ch_long_get_status
 	ld	a, l
 	pop	bc
 	ld	l, a
@@ -590,8 +590,8 @@ _ch_data_in_transfer_n:
 	ld	l,(ix+8)
 	ld	h,(ix+9)
 	call	_ch_issue_token_in
-;source-doc/base-drv/ch376.c:197: CHECK(ch_long_wait_int_and_get_status());
-	call	_ch_long_wait_int_and_get_statu
+;source-doc/base-drv/ch376.c:197: CHECK(ch_long_get_status());
+	call	_ch_long_get_status
 	ld	a,l
 	or	a
 	jr	NZ,l_ch_data_in_transfer_n_00103
@@ -709,8 +709,8 @@ l_ch_data_out_transfer_00110:
 	ld	h,b
 	push	hl
 	call	_ch_issue_token_out
-;source-doc/base-drv/ch376.c:226: CHECK(ch_long_wait_int_and_get_status());
-	call	_ch_long_wait_int_and_get_statu
+;source-doc/base-drv/ch376.c:226: CHECK(ch_long_get_status());
+	call	_ch_long_get_status
 	ld	a, l
 	pop	bc
 	ld	l, a

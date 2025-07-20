@@ -114,7 +114,7 @@ l_usb_control_transfer_00102:
 ;source-doc/base-drv/transfers.c:40: if (transferIn && buffer == 0)
 	call	_ch_issue_token_setup
 ;source-doc/base-drv/transfers.c:41: return USB_ERR_OTHER;
-	call	_ch_short_wait_int_and_get_stat
+	call	_ch_short_get_status
 	pop	bc
 ;source-doc/base-drv/transfers.c:42:
 	ld	a, l
@@ -177,7 +177,7 @@ l_usb_control_transfer_00117:
 ;source-doc/base-drv/transfers.c:55: ? (transferIn ? ch_data_in_transfer(buffer, length, &endpoint) : ch_data_out_transfer(buffer, length, &endpoint))
 	call	_ch_issue_token_out_ep0
 ;source-doc/base-drv/transfers.c:56: : USB_ERR_OK;
-	call	_ch_long_wait_int_and_get_statu
+	call	_ch_long_get_status
 ;source-doc/base-drv/transfers.c:58: CHECK(result)
 	ld	a,l
 	or	a
@@ -194,7 +194,7 @@ l_usb_control_transfer_00112:
 ;source-doc/base-drv/transfers.c:66: if (result == USB_ERR_OK || result == USB_ERR_STALL) {
 	call	_ch_issue_token_in_ep0
 ;source-doc/base-drv/transfers.c:67: result = USB_ERR_OK;
-	call	_ch_long_wait_int_and_get_statu
+	call	_ch_long_get_status
 ;source-doc/base-drv/transfers.c:71: RETURN_CHECK(result);
 l_usb_control_transfer_00113:
 ;source-doc/base-drv/transfers.c:72: }
