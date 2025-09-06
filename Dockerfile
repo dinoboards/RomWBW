@@ -20,6 +20,11 @@ FROM ubuntu:jammy-20240111 AS basebuilder
 
 # when finish, type 'exit' to return to back to your standard terminal session
 
+## flashing the rom with linux
+
+# minipro -p SST39SF040 -w ./Binary/RCEZ80_std.rom
+
+
 LABEL Maintainer="Dean Netherton" \
       Description="RomWBW builder platform"
 
