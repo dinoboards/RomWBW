@@ -916,6 +916,7 @@ below enumerates these values.
 | CIODEV_SCON     | 0x0E   | S100 Console                             | scon.asm     |
 | CIODEV_SSER     | 0x0F   | Simple Serial Console                    | sser.asm     |
 | CIODEV_EZ80UART | 0x10   | eZ80 Built-in UART0 Interface            | ez80uart.asm | 
+| CIODEV_EHDMI    | 0x11   | eZ80 supported HDMI/USB CRT interface    | ehdmi.asm    | 
 
 Character devices can usually be configured with line characteristics
 such as speed, framing, etc. A word value (16 bit) is used to describe
